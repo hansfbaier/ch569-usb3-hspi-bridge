@@ -50,28 +50,15 @@ void DebugInit(UINT32 baudrate)
     R32_PA_DIR |= (1<<8);
 }
 
-extern UINT8 in_buf0[4096];
-extern UINT8 in_buf1[4096];
-extern UINT8 out_buf0[4096];
-extern UINT8 out_buf1[4096];
+__attribute__((aligned(16))) UINT8 out_buf0[4096]   __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 out_buf1[4096]   __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 in_buf0[4096]    __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 in_buf1[4096]    __attribute__((section(".dmadata")));
 
 //////////////////////////////////////// HSPI ////////////////////////////////////
-//Mode
-#define Host_MODE    0
-#define Slave_MODE   1
-/* HSPI Mode Selection */
-#define HSPI_MODE   Slave_MODE
-
-//Data size
-#define DataSize_8bit   0
-#define DataSize_16bit   1
-#define DataSize_32bit   2
-/* HSPI Data Size Selection */
-#define Data_Size   DataSize_32bit // Not stable
-
 //DMA_Len
-#define DMA_Len0   4095
-#define DMA_Len1   4095
+#define DMA_Len0   4096
+#define DMA_Len1   4096
 
 /* Shared variables */
 volatile int HSPI_Tx_End_Flag = 0;  // Send completion flag
@@ -188,35 +175,30 @@ int main()
 	mDelaymS(1000);
 
     PRINT("Initialize DMA buffers\r\n");
-#ifndef BUFBASED_INIT
+
     for(int i=0; i < 1024; i++) {
       *(UINT32*)(out_buf0 + i*4) = 0x0a000000 + i;
       *(UINT32*)(out_buf1 + i*4) = 0xb0000000 + i;
       *(UINT32*)(in_buf0 + i*4)  = 0;
       *(UINT32*)(in_buf1 + i*4)  = 0;
     }
-#else
-	for(int i=0; i<0x2000; i++){   //0x2000*4 = 32K
-      *(UINT32*)(0x20020000+i*4) = i;
-	}
-#endif
 
 
     // USB init
-#if ENABLE_USB3
     R32_USB_CONTROL = 0;
     PFIC_EnableIRQ(USBSS_IRQn);
     PFIC_EnableIRQ(LINK_IRQn);
 
+#ifdef USB3_TIMER
     PFIC_EnableIRQ(TMR0_IRQn);
     R8_TMR0_INTER_EN = RB_TMR_IE_CYC_END;
     TMR0_TimerInit(FREQ_SYS/2);
-
-    USB30D_init(ENABLE);          //USB3.0 initialization Make sure that the two USB3.0 interrupts are enabled before initialization
 #endif
 
-    GPIOB_ModeCfg(GPIO_Pin_23, GPIO_Slowascent_PP_8mA);
-    GPIOB_ModeCfg(GPIO_Pin_24, GPIO_Slowascent_PP_8mA);
+    USB30D_init(ENABLE);          //USB3.0 initialization Make sure that the two USB3.0 interrupts are enabled before initialization
+
+    //GPIOB_ModeCfg(GPIO_Pin_23, GPIO_Slowascent_PP_8mA);
+    //GPIOB_ModeCfg(GPIO_Pin_24, GPIO_Slowascent_PP_8mA);
 
 #ifdef ZFORTH
     zf_init(1);
@@ -262,9 +244,18 @@ int main()
     }
 #endif
 
+    int send_pending = 0;
+
     for(;;) {
-    	GPIOB_InverseBits(GPIO_Pin_24);
-    	mDelaymS(300);
+        if (HSPI_Tx_End_Flag) {
+            USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
+            USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
+            USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
+            HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+            HSPI_Tx_End_Flag = 0;
+            UART1_SendByte('0' + HSPI_Tx_Buf_Num);
+            send_pending = 0;
+        }
     }
 }
 
@@ -326,31 +317,21 @@ void zf_host_trace(const char *fmt, va_list va)
  *
  * @return  none
  */
-void HSPI_IRQHandler(void)
+__attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
 {
-	//PRINT("HSPI"); fflush(stdout);
-	UART1_SendByte('H');
-	UART1_SendByte('T');
-	// transmit
-	if(R8_HSPI_INT_FLAG & RB_HSPI_IF_T_DONE) { // Single packet sending completed
-		R8_HSPI_INT_FLAG = RB_HSPI_IF_T_DONE;  // Clear Interrupt
-		UART1_SendByte('.');
-		//PRINT(" Tx buf %d done", HSPI_Tx_Buf_Num);
-		USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf1 : out_buf0);
-
-		// enable USB transfer
-		USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
-        USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
-
-        HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-		HSPI_Tx_End_Flag = 1;
-	}
+    // transmit
+    if(R8_HSPI_INT_FLAG & RB_HSPI_IF_T_DONE) { // Single packet sending completed
+        R8_HSPI_INT_FLAG = RB_HSPI_IF_T_DONE;  // Clear Interrupt
+        UART1_SendByte('T');
+        HSPI_Tx_End_Flag = 1;
+    }
 
     // receive
     if(R8_HSPI_INT_FLAG & RB_HSPI_IF_R_DONE) {  // Single packet reception completed
         R8_HSPI_INT_FLAG = RB_HSPI_IF_R_DONE;  // Clear Interrupt
+        UART1_SendByte('R');
 
-		PRINT(" Rx ");
+        //UART1_SendByte('R');
         // Determine whether the CRC is correct
         if(R8_HSPI_RTX_STATUS & RB_HSPI_CRC_ERR){  // CRC check err
             // R8_HSPI_CTRL &= ~RB_HSPI_ENABLE;
@@ -371,11 +352,10 @@ void HSPI_IRQHandler(void)
             HSPI_Rx_End_Err = 0;
             HSPI_Rx_End_Flag = 1;
 
-#if ENABLE_USB3
             USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
             USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
             USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
-#endif
+
             UART1_SendByte('0' + HSPI_Rx_Buf_Num);
 
             HSPI_Rx_Buf_Num = (R8_HSPI_RX_SC & RB_HSPI_RX_TOG) >> 4;

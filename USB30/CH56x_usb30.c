@@ -25,10 +25,10 @@ static UINT8  SetupReqCode = 0;
 static PUINT8 pDescr;
 
 __attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dmadata")));  //锟剿碉拷0锟斤拷锟斤拷锟秸凤拷锟斤拷锟斤拷锟斤拷 Endpoint 0 data transceiver buffer
-__attribute__((aligned(16))) UINT8 in_buf0[4096]    __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 in_buf1[4096]    __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 out_buf0[4096]   __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 out_buf1[4096]   __attribute__((section(".dmadata")));
+extern UINT8 in_buf0[4096];
+extern UINT8 in_buf1[4096];
+extern UINT8 out_buf0[4096];
+extern UINT8 out_buf1[4096];
 
 extern volatile int HSPI_Rx_End_Flag;
 extern volatile int HSPI_Rx_End_Err;
@@ -314,8 +314,8 @@ void USB30D_init(FunctionalState sta)
         USBSS->UEP_CFG = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN; // set end point rx/tx enable
 
         USBSS->UEP0_DMA = (UINT32)(UINT8 *)endp0RTbuff;
-        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
-        USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
+        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf1;
+        USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf1;
 
         USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL); // endpoint1 receive setting
         USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP2_IN_BURST_LEVEL, 1024); // endpoint1 send setting
@@ -569,8 +569,7 @@ void USBSS_IRQHandler(void) //USBSS interrupt service
 void TMR0_IRQHandler()
 {
     R8_TMR0_INT_FLAG = RB_TMR_IF_CYC_END;
-	GPIOB_InverseBits(GPIO_Pin_24);
-
+    UART1_SendByte('T');
     if(link_sta == 1)
     {
         link_sta = 0;
@@ -730,55 +729,54 @@ void EP1_IN_Callback(void)
     UINT8 packet_num;
     packet_num = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
 
-	USB30_IN_ClearIT(ENDP_1);
+    USB30_IN_ClearIT(ENDP_1);
+    UART1_SendByte('I');
 
     switch (packet_num) {
-		case 0: {                                                     // all sent
-			PRINT("USB IN %d\r\n", packet_num);
-			// wait for HSPI Rx
-			while (!(HSPI_Rx_End_Flag && !HSPI_Rx_End_Err)) {
-				if (HSPI_Rx_End_Flag && HSPI_Rx_End_Err) {
-					PRINT("RX error...\r\n");
-				}
-				UART1_SendByte('.');
-			}
+        case 0: {                                                     // all sent
+            // wait for HSPI Rx
+            while (!(HSPI_Rx_End_Flag && !HSPI_Rx_End_Err)) {
+                if (HSPI_Rx_End_Flag && HSPI_Rx_End_Err) {
+                    PRINT("HRXERR\r\n");
+                }
+                UART1_SendByte('w');
+            }
 
-			GPIOB_InverseBits(GPIO_Pin_23);
+            GPIOB_InverseBits(GPIO_Pin_23);
 
-            // Burst transfer DMA address offset Need to reset
-			PRINT("USB IN RX buf no %d\r\n", HSPI_Rx_Buf_Num);
-			break;
-		}
+            break;
+        }
 
-		// There is one packet left to be sent;
-		// in the burst process, the host may not be able to take all the data packets
-		// at one time, so it is necessary to determine the current number of remaining
-		// packets and notify the host that there are still a few packets to be taken,
-		// and the end of burst bit needs to be written to enable
-		case 1: {
-			USB30_IN_Set(ENDP_1, ENABLE, ACK, 1, 1024); // Able to send packet 1
-			USB30_Send_ERDY(ENDP_1 | IN, 1);
-			break;
-		}
+        // There is one packet left to be sent;
+        // in the burst process, the host may not be able to take all the data packets
+        // at one time, so it is necessary to determine the current number of remaining
+        // packets and notify the host that there are still a few packets to be taken,
+        // and the end of burst bit needs to be written to enable
+        case 1: {
+            USB30_IN_Set(ENDP_1, ENABLE, ACK, 1, 1024); // Able to send packet 1
+            USB30_Send_ERDY(ENDP_1 | IN, 1);
+            break;
+        }
 
-		case 2: {
-			USB30_IN_Set(ENDP_1, ENABLE, ACK, 2, 1024);
-			USB30_Send_ERDY(ENDP_1 | IN, 2);
-			break;
-		}
+        case 2: {
+            USB30_IN_Set(ENDP_1, ENABLE, ACK, 2, 1024);
+            USB30_Send_ERDY(ENDP_1 | IN, 2);
+            break;
+        }
 
-		case 3: {
-			USB30_IN_Set(ENDP_1, ENABLE, ACK, 3, 1024);
-			USB30_Send_ERDY(ENDP_1 | IN, 3);
-			break;
-		}
+        case 3: {
+            USB30_IN_Set(ENDP_1, ENABLE, ACK, 3, 1024);
+            USB30_Send_ERDY(ENDP_1 | IN, 3);
+            break;
+        }
     }
-	PRINT("USB IN %d done\r\n", packet_num);
 }
 
 void EP1_OUT_Callback(void)
 {
-	UART1_SendByte('O');
+    USB30_OUT_ClearIT(ENDP_1);
+
+    UART1_SendByte('O');
     // rx_len is the packet length of the last packet
     UINT16 rx_len, i;
     UINT8  nump;
@@ -786,44 +784,32 @@ void EP1_OUT_Callback(void)
     USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status); //Get the number of received packets
     UART1_SendByte('0' + nump);
 
-    //PRINT("USB OUT %d buffer no %d ...\r\n", nump, HSPI_Tx_Buf_Num);
-	GPIOB_InverseBits(GPIO_Pin_23);
-
     switch (nump) {
         case 0: {
             R8_HSPI_INT_FLAG = 0xF;
             R8_HSPI_CTRL |= RB_HSPI_SW_ACT;  // Trigger HSPI transmit
-            GPIOB_SetBits(GPIO_Pin_23);
-            GPIOB_SetBits(GPIO_Pin_24);
             break;
         }
 
         case 1: {
             USB30_OUT_Set(ENDP_1, ACK, 1);    //able to receive a packet
             USB30_Send_ERDY(ENDP_1 | OUT, 1); //通知锟斤拷锟斤拷锟铰凤拷1锟斤拷 Notify the host to deliver packet 1
-            GPIOB_SetBits(GPIO_Pin_23);
-            GPIOB_ResetBits(GPIO_Pin_24);
             break;
         }
 
         case 2: {
             USB30_OUT_Set(ENDP_1, ACK, 2);    //锟杰癸拷锟斤拷锟斤拷2锟斤拷 able to receive 2 packets
             USB30_Send_ERDY(ENDP_1 | OUT, 2); //通知锟斤拷锟斤拷锟铰凤拷2锟斤拷 Notify the Host machin to deliver packet 2
-            GPIOB_ResetBits(GPIO_Pin_23);
-            GPIOB_SetBits(GPIO_Pin_24);
             break;
         }
 
         case 3: {
             USB30_OUT_Set(ENDP_1, ACK, 3);    //锟杰癸拷锟斤拷锟斤拷3锟斤拷 able to receive 3 packets
             USB30_Send_ERDY(ENDP_1 | OUT, 3); //通知锟斤拷锟斤拷锟铰凤拷3锟斤拷 notify the host machine to deliver packet 3
-            GPIOB_ResetBits(GPIO_Pin_23);
-            GPIOB_ResetBits(GPIO_Pin_24);
             break;
         }
     }
 
-    USB30_OUT_ClearIT(ENDP_1);
     //PRINT("USB OUT %d done\r\n", nump);
 }
 
