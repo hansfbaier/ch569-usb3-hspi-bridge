@@ -12,9 +12,9 @@
 #include "CH56x_usb20.h"
 #include "CH56x_usb30.h"
 /*
- * ´ËÀı³ÌÎªUSB3.0 deviceÊ¹ÓÃÀı³Ì
- * Ö÷»ú¿ÉÏò1ºÅ¶ËµãÍ»·¢4°üÊı¾İºóÈ»ºó´Ó1ºÅ¶ËµãÈ¡×ß4°üÊı¾İ The host can burst 4 packets of data to endpoint 1 and then take 4 packets of data from endpoint 1
- * Ö÷»ú¿ÉÁ¬ĞøÏò2ºÅ¶ËµãÏÂ´«Êı¾İ Í¬Ê±Ò²¿ÉÁ¬Ğø´Ó2ºÅ¶ËµãÈ¡Êı¾İ The host can continuously download data to endpoint 2, and can also continuously fetch data from endpoint 2
+ * é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·ä¸ºUSB3.0 deviceä½¿é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
+ * é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·1é”Ÿè„šç«¯ç¢‰æ‹·çªé”Ÿæ–¤æ‹·4é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ·çŒ´æ‹·ç„¶é”Ÿæ–¤æ‹·é”Ÿï¿½1é”Ÿè„šç«¯ç¢‰æ‹·å–é”Ÿæ–¤æ‹·4é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· The host can burst 4 packets of data to endpoint 1 and then take 4 packets of data from endpoint 1
+ * é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·2é”Ÿè„šç«¯ç¢‰æ‹·é”Ÿé“°è¾¾æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· åŒæ—¶ä¹Ÿé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·2é”Ÿè„šç«¯ç¢‰æ‹·å–é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· The host can continuously download data to endpoint 2, and can also continuously fetch data from endpoint 2
  * */
 /* Global define */
 /* Global Variable */
@@ -24,10 +24,20 @@ static UINT32 SetupLen = 0;
 static UINT8  SetupReqCode = 0;
 static PUINT8 pDescr;
 
-__attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".DMADATA")));  //¶Ëµã0Êı¾İÊÕ·¢»º³åÇø Endpoint 0 data transceiver buffer
-__attribute__((aligned(16))) UINT8 endp1RTbuff[4096] __attribute__((section(".DMADATA"))); //¶Ëµã1Êı¾İÊÕ·¢»º³åÇø .
+__attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dmadata")));  //é”Ÿå‰¿ç¢‰æ‹·0é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿç§¸å‡¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· Endpoint 0 data transceiver buffer
+__attribute__((aligned(16))) UINT8 in_buf0[4096]    __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 in_buf1[4096]    __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 out_buf0[4096]   __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 out_buf1[4096]   __attribute__((section(".dmadata")));
 
-/*³¬ËÙÉè±¸ÃèÊö·û*/
+extern volatile int HSPI_Rx_End_Flag;
+extern volatile int HSPI_Rx_End_Err;
+extern volatile int HSPI_Rx_Buf_Num;
+
+extern volatile int HSPI_Tx_End_Flag;
+extern volatile int HSPI_Tx_Buf_Num;
+
+/*é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿå€Ÿå¤‡é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·*/
 const UINT8 SS_DeviceDescriptor[] =
     {
         0x12, // bLength
@@ -50,7 +60,7 @@ const UINT8 SS_DeviceDescriptor[] =
         0x01  // number of configurations
 };
 
-/*³¬ËÙÅäÖÃÃèÊö·û*/
+/*é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·*/
 const UINT8 SS_ConfigDescriptor[] =
     {
         0x09, // length of this descriptor
@@ -121,7 +131,7 @@ const UINT8 StringVendor[] =
     {
         SIZE_STRING_VENDOR, // length of this descriptor
         0x03,
-		'H', 0, 'a', 0, 'n', 0, 's', 0, ' ', 0, 'B', 0, 'a', 0, 'i', 0, 'e', 0, 'r', 0, 0, 0
+        'H', 0, 'a', 0, 'n', 0, 's', 0, ' ', 0, 'B', 0, 'a', 0, 'i', 0, 'e', 0, 'r', 0, 0, 0
         };
 
 // ====================================
@@ -131,7 +141,7 @@ const UINT8 StringProduct[] =
     {
         SIZE_STRING_PRODUCT,         // descriptor length
         0x03,       // encoding
-		'H', 0, 'S', 0, 'P', 0, 'I', 0, ' ', 0, 'B', 0, 'u', 0, 'l', 0, 'k', 0, ' ', 0, 'D', 0, 'e', 0, 'v', 0, 'i', 0, 'c', 0, 'e', 0, 0, 0
+        'H', 0, 'S', 0, 'P', 0, 'I', 0, ' ', 0, 'B', 0, 'u', 0, 'l', 0, 'k', 0, ' ', 0, 'D', 0, 'e', 0, 'v', 0, 'i', 0, 'c', 0, 'e', 0, 0, 0
     };
 
 // ====================================
@@ -218,14 +228,14 @@ const UINT8 MSOS20DescriptorSet[] =
         // Microsoft OS 2.0 Descriptor Set Header
         0x0A, 0x00,             // wLength - 10 bytes
         0x00, 0x00,             // MSOS20_SET_HEADER_DESCRIPTOR
-        0x00, 0x00, 0x03, 0x06, // dwWindowsVersion Ã¿ 0x06030000 for Windows Blue
-        0x48, 0x00,             // wTotalLength Ã¿ 72 bytes
+        0x00, 0x00, 0x03, 0x06, // dwWindowsVersion æ¯ 0x06030000 for Windows Blue
+        0x48, 0x00,             // wTotalLength æ¯ 72 bytes
                     // Microsoft OS 2.0 Registry Value Feature Descriptor
         0x3E, 0x00,             // wLength - 62 bytes
-        0x04, 0x00,             // wDescriptorType Ã¿ 4 for Registry Property
+        0x04, 0x00,             // wDescriptorType æ¯ 4 for Registry Property
         0x04, 0x00,             // wPropertyDataType - 4 for REG_DWORD
-        0x30, 0x00,             // wPropertyNameLength Ã¿ 48 bytes
-        0x53, 0x00, 0x65, 0x00, // Property Name - ¡ùSelectiveSuspendEnabled¡ì
+        0x30, 0x00,             // wPropertyNameLength æ¯ 48 bytes
+        0x53, 0x00, 0x65, 0x00, // Property Name - é”Ÿæ–¤æ‹·SelectiveSuspendEnabledé”Ÿæ–¤æ‹·
         0x6C, 0x00, 0x65, 0x00,
         0x63, 0x00, 0x74, 0x00,
         0x69, 0x00, 0x76, 0x00,
@@ -237,7 +247,7 @@ const UINT8 MSOS20DescriptorSet[] =
         0x61, 0x00, 0x62, 0x00,
         0x6C, 0x00, 0x65, 0x00,
         0x64, 0x00, 0x00, 0x00,
-        0x04, 0x00,            // wPropertyDataLength Ã¿ 4 bytes
+        0x04, 0x00,            // wPropertyDataLength æ¯ 4 bytes
         0x01, 0x00, 0x00, 0x00 // PropertyData - 0x00000001
 };
 
@@ -270,26 +280,27 @@ UINT8 GetStatus[] =
 /*******************************************************************************
  * @fn      USB30_BUS_RESET
  *
- * @brief   USB3.0×ÜÏß¸´Î»£¬´úÂëÖĞÑ¡Ôñ¸´Î»·½Ê½£¬½¨Òé²ÉÓÃÖ»¸´Î»USBµÄ·½Ê½£¬Èç¹ûÁ¬½ÓÓĞÎÊÌâ£¬¿ÉÒÔ²ÉÓÃ¸´Î»µ¥Æ¬»úµÄ·½Ê½
+ * @brief   USB3.0é”Ÿæ–¤æ‹·é”Ÿç«­é©æ‹·ä½é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é€‰é”Ÿæ–¤æ‹·ä½é”Ÿæ–¤æ‹·å¼é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿè¡—ä¼™æ‹·é”Ÿè½¿ç±™SBé”Ÿä¾¥å‡¤æ‹·å¼é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·çŒ“î„Šæ‹·é”Ÿæ–¤æ‹·åœ†é”Ÿæ–¤æ‹·é…¶é”Ÿè½¿ä¼™æ‹·é”Ÿç‹¡î„Šæ‹·é”Ÿæ–¤æ‹·å§†é”Ÿç»ï¿½
  *
  * @return   None
  */
 void USB30_BUS_RESET()
 {
-    USB30D_init(DISABLE); //USB3.0³õÊ¼»¯
+    USB30D_init(DISABLE); //USB3.0é”Ÿæ–¤æ‹·å§‹é”Ÿæ–¤æ‹·
     mDelaymS(20);
-    USB30D_init(ENABLE); //USB3.0³õÊ¼»¯
+    USB30D_init(ENABLE); //USB3.0é”Ÿæ–¤æ‹·å§‹é”Ÿæ–¤æ‹·
 }
 
 /*******************************************************************************
  * @fn      USB30D_init
  *
- * @brief   USB3.0Éè±¸³õÊ¼»¯
+ * @brief   USB3.0é”Ÿå€Ÿå¤‡é”Ÿæ–¤æ‹·å§‹é”Ÿæ–¤æ‹·
  *
  * @return   None
  */
 void USB30D_init(FunctionalState sta)
 {
+    printf("USB3 init.\r\n");
     UINT16 i, s;
     if(sta)
     {
@@ -303,13 +314,15 @@ void USB30D_init(FunctionalState sta)
         USBSS->UEP_CFG = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN; // set end point rx/tx enable
 
         USBSS->UEP0_DMA = (UINT32)(UINT8 *)endp0RTbuff;
-        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)endp1RTbuff;
+        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
+        USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
 
         USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL); // endpoint1 receive setting
         USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP2_IN_BURST_LEVEL, 1024); // endpoint1 send setting
     }
     else
     {
+        printf("USB3 power down.\r\n");
         USB30_Switch_Powermode(POWER_MODE_2);
         USBSS->LINK_CFG = PIPE_RESET | LFPS_RX_PD;
         USBSS->LINK_CTRL = GO_DISABLED | POWER_MODE_3;
@@ -321,9 +334,9 @@ void USB30D_init(FunctionalState sta)
 /*******************************************************************************
  * @fn      USB30_NonStandardReq
  *
- * @brief   USB3.0·Ç±ê×¼ÇëÇó´¦Àíº¯Êı
+ * @brief   USB3.0é”Ÿè§’æ†‹æ‹·å‡†é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  *
- * @return   ³¤¶È
+ * @return   é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  */
 UINT16 USB30_NonStandardReq()
 {
@@ -340,7 +353,7 @@ UINT16 USB30_NonStandardReq()
 #endif
     switch(SetupReqCode)
     {
-        case 0x02: //ÓÃ»§¶¨ÒåÃüÁî
+        case 0x02: //é”ŸçŸ«ä¼™æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
             switch(UsbSetupBuf->wIndex.bw.bb1)
             {
                 case 0x05:
@@ -360,10 +373,10 @@ UINT16 USB30_NonStandardReq()
             return USB_DESCR_UNSUPPORTED;
             break;
     }
-    len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen; // ±¾´Î´«Êä³¤¶È
+    len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen; // é”Ÿæ–¤æ‹·é”Ÿè½¿è¾¾æ‹·é”Ÿæˆ’é•¿é”Ÿæ–¤æ‹·
     if(endp_dir)
     {
-        memcpy(endp0RTbuff, pDescr, len); // device  /* ¼ÓÔØÉÏ´«Êı¾İ */
+        memcpy(endp0RTbuff, pDescr, len); // device  /* é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿè¾ƒè¾¾æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· */
         pDescr += len;
     }
     SetupLen -= len;
@@ -373,9 +386,9 @@ UINT16 USB30_NonStandardReq()
 /*******************************************************************************
  * @fn      USB30_StandardReq
  *
- * @brief   USB3.0±ê×¼ÇëÇó
+ * @brief   USB3.0é”Ÿæ–¤æ‹·å‡†é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  *
- * @return   ³¤¶È
+ * @return   é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  */
 UINT16 USB30_StandardReq()
 {
@@ -434,26 +447,26 @@ UINT16 USB30_StandardReq()
                             pDescr = (PUINT8)OSStringDescriptor;
                             break;
                         default:
-                            len = USB_DESCR_UNSUPPORTED;     //²»Ö§³ÖµÄÃèÊö·û
-                            SetupReqCode = INVALID_REQ_CODE; //ÎŞĞ§µÄÇëÇóÂë
+                            len = USB_DESCR_UNSUPPORTED;     //é”Ÿæ–¤æ‹·æ”¯é”Ÿè¡—ç¢‰æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
+                            SetupReqCode = INVALID_REQ_CODE; //é”Ÿæ–¤æ‹·æ•ˆé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
                             break;
                     }
                     break;
                 default:
-                    len = USB_DESCR_UNSUPPORTED; //²»Ö§³ÖµÄÃèÊö·û
+                    len = USB_DESCR_UNSUPPORTED; //é”Ÿæ–¤æ‹·æ”¯é”Ÿè¡—ç¢‰æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
                     SetupReqCode = INVALID_REQ_CODE;
                     break;
             }
-            len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen; //±¾´Î´«Êä³¤¶È
-            memcpy(endp0RTbuff, pDescr, len);                           // device  /*¼ÓÔØÉÏ´«Êı¾İ */
+            len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen; //é”Ÿæ–¤æ‹·é”Ÿè½¿è¾¾æ‹·é”Ÿæˆ’é•¿é”Ÿæ–¤æ‹·
+            memcpy(endp0RTbuff, pDescr, len);                           // device  /*é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿè¾ƒè¾¾æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· */
             SetupLen -= len;
             pDescr += len;
             break;
         case USB_SET_ADDRESS:
-            SetupLen = UsbSetupBuf->wValue.bw.bb1; // Ôİ´æUSBÉè±¸µØÖ·
+            SetupLen = UsbSetupBuf->wValue.bw.bb1; // é”Ÿæ·è¾¾æ‹·USBé”Ÿå€Ÿå¤‡é”Ÿæ–¤æ‹·å€
             break;
         case 0x31:
-            SetupLen = UsbSetupBuf->wValue.bw.bb1; // Ôİ´æUSBÉè±¸µØÖ·
+            SetupLen = UsbSetupBuf->wValue.bw.bb1; // é”Ÿæ·è¾¾æ‹·USBé”Ÿå€Ÿå¤‡é”Ÿæ–¤æ‹·å€
             break;
         case 0x30:
             break;
@@ -472,7 +485,7 @@ UINT16 USB30_StandardReq()
         case USB_SET_INTERFACE:
             break;
         default:
-            len = USB_DESCR_UNSUPPORTED; //·µ»Østall£¬²»Ö§³ÖµÄÃüÁî
+            len = USB_DESCR_UNSUPPORTED; //é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·stallé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æ”¯é”Ÿè¡—ç¢‰æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
             SetupReqCode = INVALID_REQ_CODE;
             //        printf(" stall \n");
             break;
@@ -483,9 +496,9 @@ UINT16 USB30_StandardReq()
 /*******************************************************************************
  * @fn      EP0_IN_Callback
  *
- * @brief   USB3.0¶Ëµã0INÊÂÎñ»Øµ÷
+ * @brief   USB3.0é”Ÿå‰¿ç¢‰æ‹·0INé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æ°é”Ÿï¿½
  *
- * @return   ·¢ËÍ³¤¶È
+ * @return   é”Ÿæ–¤æ‹·é”Ÿé…µç­¹æ‹·é”Ÿæ–¤æ‹·
  */
 UINT16 EP0_IN_Callback(void)
 {
@@ -505,9 +518,9 @@ UINT16 EP0_IN_Callback(void)
 /*******************************************************************************
  * @fn      EP0_OUT_Callback
  *
- * @brief   USB3.0¶Ëµã0OUT»Øµ÷
+ * @brief   USB3.0é”Ÿå‰¿ç¢‰æ‹·0OUTé”Ÿæˆªç¢‰æ‹·
  *
- * @return   ³¤¶È
+ * @return   é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  */
 UINT16 EP0_OUT_Callback(void)
 {
@@ -518,7 +531,7 @@ UINT16 EP0_OUT_Callback(void)
 /*******************************************************************************
  * @fn      USB30_Setup_Status
  *
- * @brief   USB3.0¿ØÖÆ´«Êä×´Ì¬½×¶Î»Øµ÷
+ * @brief   USB3.0é”Ÿæ–¤æ‹·é”Ÿç‹¡è¾¾æ‹·é”Ÿæ–¤æ‹·çŠ¶æ€é”Ÿé˜¶æ®µå›ç¢‰æ‹·
  *
  * @return   None
  */
@@ -549,13 +562,14 @@ void USBSS_IRQHandler(void) //USBSS interrupt service
 /*******************************************************************************
  * @fn      TMR0_IRQHandler
  *
- * @brief   USB3.0Á¬½ÓÊ§°Ü³¬Ê±´¦Àí
+ * @brief   USB3.0é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å¤±é”Ÿæ°ç­¹æ‹·æ—¶é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  *
  * @return   None
  */
 void TMR0_IRQHandler()
 {
     R8_TMR0_INT_FLAG = RB_TMR_IF_CYC_END;
+	GPIOB_InverseBits(GPIO_Pin_24);
 
     if(link_sta == 1)
     {
@@ -566,16 +580,18 @@ void TMR0_IRQHandler()
         PRINT("USB3.0 disable\n");
         return;
     }
+
     if(link_sta != 3)
     {
         PFIC_DisableIRQ(USBSS_IRQn);
         PFIC_DisableIRQ(LINK_IRQn);
         USB30D_init(DISABLE);
-        //        PRINT("USB2.0\n");
+        PRINT("USB2.0\n");
         R32_USB_CONTROL = 0;
         PFIC_EnableIRQ(USBHS_IRQn);
         USB20_Device_Init(ENABLE);
     }
+
     link_sta = 1;
     R8_TMR0_INTER_EN = 0;
     PFIC_DisableIRQ(TMR0_IRQn);
@@ -607,7 +623,7 @@ void LINK_IRQHandler() //USBSS link interrupt service
             USBSS->LMP_TX_DATA2 = 0x0;
             tx_lmp_port = 0;
         }
-        //³É¹¦USB3.0Í¨Ñ¶
+        //é”Ÿç¼´ç™¸æ‹·USB3.0é€šè®¯
         link_sta = 3;
         PFIC_DisableIRQ(TMR0_IRQn);
         R8_TMR0_CTRL_MOD = RB_TMR_ALL_CLEAR;
@@ -621,6 +637,7 @@ void LINK_IRQHandler() //USBSS link interrupt service
         USBSS->LINK_INT_FLAG = LINK_INACT_FLAG;
         USB30_Switch_Powermode(POWER_MODE_2);
     }
+
     if(USBSS->LINK_INT_FLAG & LINK_DISABLE_FLAG) // GO DISABLED
     {
         USBSS->LINK_INT_FLAG = LINK_DISABLE_FLAG;
@@ -633,11 +650,13 @@ void LINK_IRQHandler() //USBSS link interrupt service
         PFIC_EnableIRQ(USBHS_IRQn);
         USB20_Device_Init(ENABLE);
     }
+
     if(USBSS->LINK_INT_FLAG & LINK_RX_DET_FLAG)
     {
         USBSS->LINK_INT_FLAG = LINK_RX_DET_FLAG;
         USB30_Switch_Powermode(POWER_MODE_2);
     }
+
     if(USBSS->LINK_INT_FLAG & TERM_PRESENT_FLAG) // term present , begin POLLING
     {
         USBSS->LINK_INT_FLAG = TERM_PRESENT_FLAG;
@@ -653,12 +672,14 @@ void LINK_IRQHandler() //USBSS link interrupt service
             USB30_BUS_RESET();
         }
     }
+
     if(USBSS->LINK_INT_FLAG & LINK_TXEQ_FLAG) // POLLING SHAKE DONE
     {
         tx_lmp_port = 1;
         USBSS->LINK_INT_FLAG = LINK_TXEQ_FLAG;
         USB30_Switch_Powermode(POWER_MODE_0);
     }
+
     if(USBSS->LINK_INT_FLAG & WARM_RESET_FLAG)
     {
         USBSS->LINK_INT_FLAG = WARM_RESET_FLAG;
@@ -672,7 +693,8 @@ void LINK_IRQHandler() //USBSS link interrupt service
         mDelayuS(2);
         //        printf("warm reset\n");
     }
-    if(USBSS->LINK_INT_FLAG & HOT_RESET_FLAG) //Ö÷»ú¿ÉÄÜ»áÏÂ·¢hot reset,Ğè×¢Òâ¶ËµãµÄÅäÖÃ
+
+    if(USBSS->LINK_INT_FLAG & HOT_RESET_FLAG) //é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ°ä¼™æ‹·é”Ÿé“°å‡¤æ‹·hot reset,é”Ÿæ–¤æ‹·æ³¨é”Ÿæ–¤æ‹·è¯´é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
     {
         USBSS->USB_CONTROL |= 1 << 31;
         USBSS->LINK_INT_FLAG = HOT_RESET_FLAG; // HOT RESET begin
@@ -683,108 +705,126 @@ void LINK_IRQHandler() //USBSS link interrupt service
         USB30_Device_Setaddress(0);
         USBSS->LINK_CTRL &= ~TX_HOT_RESET; // HOT RESET end
     }
+
     if(USBSS->LINK_INT_FLAG & LINK_GO_U1_FLAG) // device enter U1
     {
         USB30_Switch_Powermode(POWER_MODE_1);
         USBSS->LINK_INT_FLAG = LINK_GO_U1_FLAG;
     }
+
     if(USBSS->LINK_INT_FLAG & LINK_GO_U2_FLAG) // device enter U2
     {
         USB30_Switch_Powermode(POWER_MODE_2);
         USBSS->LINK_INT_FLAG = LINK_GO_U2_FLAG;
     }
+
     if(USBSS->LINK_INT_FLAG & LINK_GO_U3_FLAG) // device enter U2
     {
         USB30_Switch_Powermode(POWER_MODE_2);
         USBSS->LINK_INT_FLAG = LINK_GO_U3_FLAG;
     }
 }
-/***************Endpoint IN Transaction Processing*******************/
-/*******************************************************************************
- * @fn      EP1_IN_Callback
- *
- * @brief   USB3.0 endpoint1 in callback.
- *
- * @return   None
- */
+
 void EP1_IN_Callback(void)
 {
-    UINT8 nump;
-    nump = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
-    if(nump == 0)
-    {                                                             // all sent
-        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)endp1RTbuff;        // Burst transfer DMA address offset Need to reset
-        USB30_IN_ClearIT(ENDP_1);                                 // Clear endpoint state Keep only packet sequence number
-        USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);    // Set the endpoint to be able to receive 4 packets
-        USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL); // Notify the host to send 4 packets
-    }
+    UINT8 packet_num;
+    packet_num = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
 
-    // There is one packet left to be sent;
-    // in the burst process, the host may not be able to take all the data packets
-    // at one time, so it is necessary to determine the current number of remaining
-    // packets and notify the host that there are still a few packets to be taken,
-    // and the end of burst bit needs to be written to enable
-    else if(nump == 1)
-    {
-        USB30_IN_ClearIT(ENDP_1);                   // Clear endpoint state Keep only packet sequence number
-        USB30_IN_Set(ENDP_1, ENABLE, ACK, 1, 1024); // Able to send packet 1
-        USB30_Send_ERDY(ENDP_1 | IN, 1);
+	USB30_IN_ClearIT(ENDP_1);
+
+    switch (packet_num) {
+		case 0: {                                                     // all sent
+			PRINT("USB IN %d\r\n", packet_num);
+			// wait for HSPI Rx
+			while (!(HSPI_Rx_End_Flag && !HSPI_Rx_End_Err)) {
+				if (HSPI_Rx_End_Flag && HSPI_Rx_End_Err) {
+					PRINT("RX error...\r\n");
+				}
+				UART1_SendByte('.');
+			}
+
+			GPIOB_InverseBits(GPIO_Pin_23);
+
+            // Burst transfer DMA address offset Need to reset
+			PRINT("USB IN RX buf no %d\r\n", HSPI_Rx_Buf_Num);
+			break;
+		}
+
+		// There is one packet left to be sent;
+		// in the burst process, the host may not be able to take all the data packets
+		// at one time, so it is necessary to determine the current number of remaining
+		// packets and notify the host that there are still a few packets to be taken,
+		// and the end of burst bit needs to be written to enable
+		case 1: {
+			USB30_IN_Set(ENDP_1, ENABLE, ACK, 1, 1024); // Able to send packet 1
+			USB30_Send_ERDY(ENDP_1 | IN, 1);
+			break;
+		}
+
+		case 2: {
+			USB30_IN_Set(ENDP_1, ENABLE, ACK, 2, 1024);
+			USB30_Send_ERDY(ENDP_1 | IN, 2);
+			break;
+		}
+
+		case 3: {
+			USB30_IN_Set(ENDP_1, ENABLE, ACK, 3, 1024);
+			USB30_Send_ERDY(ENDP_1 | IN, 3);
+			break;
+		}
     }
-    else if(nump == 2)
-    {
-        USB30_IN_ClearIT(ENDP_1);
-        USB30_IN_Set(ENDP_1, ENABLE, ACK, 2, 1024);
-        USB30_Send_ERDY(ENDP_1 | IN, 2);
-    }
-    else if(nump == 3)
-    {
-        USB30_IN_ClearIT(ENDP_1);
-        USB30_IN_Set(ENDP_1, ENABLE, ACK, 3, 1024);
-        USB30_Send_ERDY(ENDP_1 | IN, 3);
-    }
+	PRINT("USB IN %d done\r\n", packet_num);
 }
 
-/***************Endpoint OUT Transaction Processing*******************/
-
-/*******************************************************************************
- * @fn      EP1_OUT_Callback
- *
- * @brief   USB3.0 endpoint1 out callback.
- *
- * @return   None
- */
 void EP1_OUT_Callback(void)
 {
+	UART1_SendByte('O');
     // rx_len is the packet length of the last packet
     UINT16 rx_len, i;
     UINT8  nump;
     UINT8  status;
     USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status); //Get the number of received packets
-    if(nump == 0)
-    {
-        USB30_OUT_ClearIT(ENDP_1);                                         //Clear all state of the endpoint Keep only the packet sequence
-        USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)endp1RTbuff;                 //In burst mode, the address needs to be reset due to automatic address offset.
-        USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024); //Able to send 4 packets on endpoint 1
-        USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL);            //Notify the host to take 4 packets
+    UART1_SendByte('0' + nump);
+
+    //PRINT("USB OUT %d buffer no %d ...\r\n", nump, HSPI_Tx_Buf_Num);
+	GPIOB_InverseBits(GPIO_Pin_23);
+
+    switch (nump) {
+        case 0: {
+            R8_HSPI_INT_FLAG = 0xF;
+            R8_HSPI_CTRL |= RB_HSPI_SW_ACT;  // Trigger HSPI transmit
+            GPIOB_SetBits(GPIO_Pin_23);
+            GPIOB_SetBits(GPIO_Pin_24);
+            break;
+        }
+
+        case 1: {
+            USB30_OUT_Set(ENDP_1, ACK, 1);    //able to receive a packet
+            USB30_Send_ERDY(ENDP_1 | OUT, 1); //é€šçŸ¥é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿé“°å‡¤æ‹·1é”Ÿæ–¤æ‹· Notify the host to deliver packet 1
+            GPIOB_SetBits(GPIO_Pin_23);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            break;
+        }
+
+        case 2: {
+            USB30_OUT_Set(ENDP_1, ACK, 2);    //é”Ÿæ°ç™¸æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·2é”Ÿæ–¤æ‹· able to receive 2 packets
+            USB30_Send_ERDY(ENDP_1 | OUT, 2); //é€šçŸ¥é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿé“°å‡¤æ‹·2é”Ÿæ–¤æ‹· Notify the Host machin to deliver packet 2
+            GPIOB_ResetBits(GPIO_Pin_23);
+            GPIOB_SetBits(GPIO_Pin_24);
+            break;
+        }
+
+        case 3: {
+            USB30_OUT_Set(ENDP_1, ACK, 3);    //é”Ÿæ°ç™¸æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·3é”Ÿæ–¤æ‹· able to receive 3 packets
+            USB30_Send_ERDY(ENDP_1 | OUT, 3); //é€šçŸ¥é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿé“°å‡¤æ‹·3é”Ÿæ–¤æ‹· notify the host machine to deliver packet 3
+            GPIOB_ResetBits(GPIO_Pin_23);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            break;
+        }
     }
-    else if(nump == 1) //»¹¿ÉÒÔ½ÓÊÕÒ»°ü You can also receive a package
-    {
-        USB30_OUT_ClearIT(ENDP_1);
-        USB30_OUT_Set(ENDP_1, ACK, 1);    //able to receive a packet
-        USB30_Send_ERDY(ENDP_1 | OUT, 1); //Í¨ÖªÖ÷»úÏÂ·¢1°ü Notify the host to deliver packet 1
-    }
-    else if(nump == 2)
-    {
-        USB30_OUT_ClearIT(1);
-        USB30_OUT_Set(ENDP_1, ACK, 2);    //ÄÜ¹»½ÓÊÕ2°ü able to receive 2 packets
-        USB30_Send_ERDY(ENDP_1 | OUT, 2); //Í¨ÖªÖ÷»úÏÂ·¢2°ü Notify the Host machin to deliver packet 2
-    }
-    else if(nump == 3)
-    {
-        USB30_OUT_ClearIT(1);
-        USB30_OUT_Set(ENDP_1, ACK, 3);    //ÄÜ¹»½ÓÊÕ3°ü able to receive 3 packets
-        USB30_Send_ERDY(ENDP_1 | OUT, 3); //Í¨ÖªÖ÷»úÏÂ·¢3°ü notify the host machine to deliver packet 3
-    }
+
+    USB30_OUT_ClearIT(ENDP_1);
+    //PRINT("USB OUT %d done\r\n", nump);
 }
 
 void EP2_IN_Callback(void) { }
@@ -804,7 +844,7 @@ void EP7_OUT_Callback(void) { }
 /*******************************************************************************
  * @fn      USB30_ITP_Callback
  *
- * @brief   USB3.0 ITP»Øµ÷º¯Êı
+ * @brief   USB3.0 ITPé”Ÿæˆªç¢‰æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·
  *
  * @return   None
  */

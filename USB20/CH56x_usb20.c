@@ -31,6 +31,13 @@ static UINT8V SetupReq = 0;        //主机请求描述符类型
 static PUINT8 pDescr;
 extern UINT8V link_sta;
 
+/*
+extern UINT8 in_buf0[4096];
+extern UINT8 in_buf1[4096];
+extern UINT8 out_buf0[4096];
+extern UINT8 out_buf1[4096];
+*/
+
 __attribute__ ((aligned(16))) UINT8 vendor_buff[16]  __attribute__((section(".DMADATA"))); //端点0数据收发缓冲区
 /* Function declaration */
 void USBHS_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));           //USB2.0 interrupt service
@@ -296,8 +303,8 @@ void USB20_Endp_Init ()	// USBHS device endpoint initial
 
     R32_UEP0_RT_DMA = (UINT32)(UINT8 *)endp0RTbuff;
 
-    R32_UEP1_TX_DMA = (UINT32)(UINT8 *)endp1RTbuff;
-	R32_UEP1_RX_DMA = (UINT32)(UINT8 *)endp1RTbuff;
+    //R32_UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
+	//R32_UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
 
 	R16_UEP0_T_LEN = 0;
 	R8_UEP0_TX_CTRL = 0;
@@ -730,7 +737,7 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
 		           rxlen = R16_USB_RX_LEN;
                    R8_UEP1_RX_CTRL = (R8_UEP1_RX_CTRL & ~RB_UEP_RRES_MASK) | UEP_R_RES_NAK;     //1号端点接收置NAK
 
-		           R32_UEP1_TX_DMA = (UINT32)(UINT8 *)endp1RTbuff;
+		           //R32_UEP1_TX_DMA = (UINT32)(UINT8 *)out_buf0;
 		           R16_UEP1_T_LEN =  rxlen;                                                     //设置1号端点发送长度
 		           R8_UEP1_TX_CTRL = (R8_UEP1_TX_CTRL &~RB_UEP_TRES_MASK)|UEP_T_RES_ACK;        //启动发送 置ACK
 		       }
