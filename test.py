@@ -38,10 +38,7 @@ def init():
 
 ep_in, ep_out = init()
 
-ep_out.write("TEST! bla bla bla bla bla bla........" + 1024 * " " + "\r\n")
-
-
-res = ep_in.read(1024, 100)
-
-# write the data
-print(str(res))
+ep_out.write([0x00 for i in range(4096)]) 
+ep_out.write([0xff for i in range(4096)]) 
+ep_out.write([0x55 for i in range(4096)]) 
+ep_out.write([0xaa for i in range(4096)]) 
