@@ -36,8 +36,11 @@ void DebugInit(UINT32 baudrate)
 }
 
 __attribute__((aligned(16))) UINT8 out_buf0[4096] __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 out_buf1[4096] __attribute__((section(".dmadata")));
 __attribute__((aligned(16))) UINT8 in_buf0[4096]  __attribute__((section(".dmadata")));
+// unused. makes shure the buffers which are simultaneously accessed
+// are in different memory banks
+//__attribute__((aligned(16))) UINT8 separator[16384]  __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 out_buf1[4096] __attribute__((section(".dmadata")));
 __attribute__((aligned(16))) UINT8 in_buf1[4096]  __attribute__((section(".dmadata")));
 
 //////////////////////////////////////// HSPI ////////////////////////////////////
