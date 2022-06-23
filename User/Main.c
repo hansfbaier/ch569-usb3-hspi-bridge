@@ -188,13 +188,17 @@ int main()
     // We want to receive the new packet on USB3 while we are transmitting
     // the last packet on HSPI.
     for(;;) {
+        GPIOB_SetBits(GPIO_Pin_23);
 		// spinlock until we get a new USB3 packet
 		while (!USB3_Packet_Received);
 		USB3_Packet_Received = 0;
+	    GPIOB_ResetBits(GPIO_Pin_23);
 
+	    GPIOB_SetBits(GPIO_Pin_24);
 		// spinlock until HSPI finishes sending the current packet
 		while (!HSPI_Tx_End_Flag);
 		HSPI_Tx_End_Flag = 0;
+	    GPIOB_ResetBits(GPIO_Pin_24);
 
 		int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
 		Enable_New_USB3_Transfer(HSPI_Tx_Buf_Num);

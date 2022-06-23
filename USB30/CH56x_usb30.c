@@ -645,8 +645,6 @@ void EP1_IN_Callback(void)
     	// all sent
         case 0: {
         	// TODO
-            GPIOB_InverseBits(GPIO_Pin_23);
-
             break;
         }
 
