@@ -205,13 +205,7 @@ int main()
     }
 }
 
-/*********************************************************************
- * @fn      HSPI_IRQHandler
- *
- * @brief   This function handles HSPI exception.
- *
- * @return  none
- */
+
 __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
 {
     // transmit
