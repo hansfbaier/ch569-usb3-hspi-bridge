@@ -245,7 +245,6 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         R8_HSPI_INT_FLAG = RB_HSPI_IF_R_DONE;  // Clear Interrupt
         DBG('R');
 
-        //UART1_SendByte('R');
         // Determine whether the CRC is correct
         if(R8_HSPI_RTX_STATUS & RB_HSPI_CRC_ERR){  // CRC check err
             // R8_HSPI_CTRL &= ~RB_HSPI_ENABLE;
