@@ -33,8 +33,8 @@ __attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dma
 extern UINT8 in_buf0[4096];
 extern UINT8 out_buf0[4096];
 
-extern volatile int USB3_OUT_Packet_Received;
-extern volatile int USB3_IN_Packet_Received;
+extern volatile int USB3_OUT_Token_Received;
+extern volatile int USB3_IN_Token_Received;
 
 const UINT8 SS_DeviceDescriptor[] =
     {
@@ -646,7 +646,7 @@ void EP1_IN_Callback(void)
     switch (nump) {
     	// all sent
         case 0: {
-        	USB3_IN_Packet_Received = 1;
+        	USB3_IN_Token_Received = 1;
             break;
         }
 
@@ -690,7 +690,7 @@ void EP1_OUT_Callback(void)
 
     switch (nump) {
         case 0: {
-        	USB3_OUT_Packet_Received = 1;
+        	USB3_OUT_Token_Received = 1;
             break;
         }
 

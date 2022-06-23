@@ -51,8 +51,8 @@ __attribute__((aligned(16))) UINT8 in_buf1[4096]  __attribute__((section(".dmada
 volatile int HSPI_Tx_End_Flag;
 volatile int HSPI_Rx_End_Flag;
 volatile int HSPI_Rx_End_Err; // 0=No Error else >0 Error code
-volatile int USB3_OUT_Packet_Received;
-volatile int USB3_IN_Packet_Received;
+volatile int USB3_OUT_Token_Received;
+volatile int USB3_IN_Token_Received;
 
 void HSPI_GPIO_Init(void)
 {
@@ -201,8 +201,8 @@ int main()
 
         GPIOB_SetBits(GPIO_Pin_23);
         // spinlock until we get a new USB3 packet
-        while (!USB3_OUT_Packet_Received);
-        USB3_OUT_Packet_Received = 0;
+        while (!USB3_OUT_Token_Received);
+        USB3_OUT_Token_Received = 0;
         GPIOB_ResetBits(GPIO_Pin_23);
 
         int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
@@ -213,7 +213,7 @@ int main()
         R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
 
         // receive packets, if available
-        if (USB3_IN_Packet_Received) {
+        if (USB3_IN_Token_Received) {
             if (HSPI_Rx_End_Flag) {
                 HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
                 USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
@@ -228,7 +228,7 @@ int main()
             }
 
             HSPI_Rx_End_Flag = 0;
-            USB3_IN_Packet_Received = 0;
+            USB3_IN_Token_Received = 0;
         }
     }
 }
