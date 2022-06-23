@@ -7,37 +7,34 @@
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
 * SPDX-License-Identifier: Apache-2.0
 *******************************************************************************/
+#include "debug.h"
 #include "CH56x_common.h"
 #include "CH56xusb30_LIB.h"
 #include "CH56x_usb20.h"
 #include "CH56x_usb30.h"
+
 /*
- * 锟斤拷锟斤拷锟斤拷为USB3.0 device使锟斤拷锟斤拷锟斤拷
- * 锟斤拷锟斤拷锟斤拷锟斤拷1锟脚端碉拷突锟斤拷4锟斤拷锟斤拷锟捷猴拷然锟斤拷锟�1锟脚端碉拷取锟斤拷4锟斤拷锟斤拷锟斤拷 The host can burst 4 packets of data to endpoint 1 and then take 4 packets of data from endpoint 1
- * 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷2锟脚端碉拷锟铰达拷锟斤拷锟斤拷 同时也锟斤拷锟斤拷锟斤拷锟斤拷2锟脚端碉拷取锟斤拷锟斤拷 The host can continuously download data to endpoint 2, and can also continuously fetch data from endpoint 2
+ * USB3.0 device
+ * The host can burst 4 packets of data to endpoint 1 and then take 4 packets of data from endpoint 1
+ * The host can continuously download data to endpoint 2, and can also continuously fetch data from endpoint 2
  * */
-/* Global define */
-/* Global Variable */
+
+/* Global defines */
+/* Global Variables */
 UINT8V        tx_lmp_port = 0;
-UINT8V        link_sta = 0;
+UINT8V        link_state = 0;
 static UINT32 SetupLen = 0;
 static UINT8  SetupReqCode = 0;
 static PUINT8 pDescr;
 
-__attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dmadata")));  //锟剿碉拷0锟斤拷锟斤拷锟秸凤拷锟斤拷锟斤拷锟斤拷 Endpoint 0 data transceiver buffer
+// Endpoint 0 data transceiver buffer
+__attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dmadata")));
+
 extern UINT8 in_buf0[4096];
-extern UINT8 in_buf1[4096];
 extern UINT8 out_buf0[4096];
-extern UINT8 out_buf1[4096];
 
-extern volatile int HSPI_Rx_End_Flag;
-extern volatile int HSPI_Rx_End_Err;
-extern volatile int HSPI_Rx_Buf_Num;
+extern volatile int USB3_Packet_Received;
 
-extern volatile int HSPI_Tx_End_Flag;
-extern volatile int HSPI_Tx_Buf_Num;
-
-/*锟斤拷锟斤拷锟借备锟斤拷锟斤拷锟斤拷*/
 const UINT8 SS_DeviceDescriptor[] =
     {
         0x12, // bLength
@@ -60,7 +57,6 @@ const UINT8 SS_DeviceDescriptor[] =
         0x01  // number of configurations
 };
 
-/*锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷*/
 const UINT8 SS_ConfigDescriptor[] =
     {
         0x09, // length of this descriptor
@@ -113,9 +109,6 @@ const UINT8 SS_ConfigDescriptor[] =
         0x00,
         0x00};
 
-// ===== String Descriptor Lang ID=====
-// ====================================//
-
 const UINT8 StringLangID[] =
     {
         0x04, // this descriptor length
@@ -124,9 +117,6 @@ const UINT8 StringLangID[] =
         0x04  // Language ID 0 high byte
 };
 
-// ====================================
-// =====   String Descriptor 1    =====
-// ====================================
 const UINT8 StringVendor[] =
     {
         SIZE_STRING_VENDOR, // length of this descriptor
@@ -134,9 +124,6 @@ const UINT8 StringVendor[] =
         'H', 0, 'a', 0, 'n', 0, 's', 0, ' ', 0, 'B', 0, 'a', 0, 'i', 0, 'e', 0, 'r', 0, 0, 0
         };
 
-// ====================================
-// =====   String Descriptor 2    =====
-// ====================================
 const UINT8 StringProduct[] =
     {
         SIZE_STRING_PRODUCT,         // descriptor length
@@ -144,9 +131,6 @@ const UINT8 StringProduct[] =
         'H', 0, 'S', 0, 'P', 0, 'I', 0, ' ', 0, 'B', 0, 'u', 0, 'l', 0, 'k', 0, ' ', 0, 'D', 0, 'e', 0, 'v', 0, 'i', 0, 'c', 0, 'e', 0, 0, 0
     };
 
-// ====================================
-// =====   String Descriptor 3    =====
-// ====================================
 UINT8 StringSerial[] =
     {
         0x16, // length of this descriptor
@@ -202,7 +186,7 @@ const UINT8 BOSDescriptor[] =
         0x00, // total length high byte
         0x02, // number of device cap
 
-        //dev_cap_descriptor1
+        // dev_cap_descriptor1
         0x07,
         0x10, // DEVICE CAPABILITY type
         0x02, // USB2.0 EXTENSION
@@ -211,7 +195,7 @@ const UINT8 BOSDescriptor[] =
         0x00,
         0x00,
 
-        //dev_cap_descriptor2
+        // dev_cap_descriptor2
         0x0a, // length of this descriptor
         0x10, // DEVICE CAPABILITY type
         0x03, // superspeed usb device capability
@@ -277,13 +261,6 @@ UINT8 GetStatus[] =
     {
         0x01, 0x00};
 
-/*******************************************************************************
- * @fn      USB30_BUS_RESET
- *
- * @brief   USB3.0锟斤拷锟竭革拷位锟斤拷锟斤拷锟斤拷锟斤拷选锟斤拷位锟斤拷式锟斤拷锟斤拷锟斤拷锟斤拷锟街伙拷锟轿籙SB锟侥凤拷式锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷猓拷锟斤拷圆锟斤拷酶锟轿伙拷锟狡拷锟斤拷姆锟绞�
- *
- * @return   None
- */
 void USB30_BUS_RESET()
 {
     USB30D_init(DISABLE); //USB3.0锟斤拷始锟斤拷
@@ -291,13 +268,6 @@ void USB30_BUS_RESET()
     USB30D_init(ENABLE); //USB3.0锟斤拷始锟斤拷
 }
 
-/*******************************************************************************
- * @fn      USB30D_init
- *
- * @brief   USB3.0锟借备锟斤拷始锟斤拷
- *
- * @return   None
- */
 void USB30D_init(FunctionalState sta)
 {
     printf("USB3 init.\r\n");
@@ -314,8 +284,8 @@ void USB30D_init(FunctionalState sta)
         USBSS->UEP_CFG = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN; // set end point rx/tx enable
 
         USBSS->UEP0_DMA = (UINT32)(UINT8 *)endp0RTbuff;
-        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf1;
-        USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf1;
+        USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
+        USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
 
         USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL); // endpoint1 receive setting
         USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP2_IN_BURST_LEVEL, 1024); // endpoint1 send setting
@@ -331,13 +301,6 @@ void USB30D_init(FunctionalState sta)
     }
 }
 
-/*******************************************************************************
- * @fn      USB30_NonStandardReq
- *
- * @brief   USB3.0锟角憋拷准锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
- *
- * @return   锟斤拷锟斤拷
- */
 UINT16 USB30_NonStandardReq()
 {
     UINT8 endp_dir;
@@ -346,14 +309,10 @@ UINT16 USB30_NonStandardReq()
     SetupLen = UsbSetupBuf->wLength;
     endp_dir = UsbSetupBuf->bRequestType & 0x80;
     UINT16 len = 0;
-#if 0
-    printf("NS:%02x %02x\n", endp0RTbuff[0], endp0RTbuff[1],
-            endp0RTbuff[2], endp0RTbuff[3], endp0RTbuff[4], endp0RTbuff[5],
-            endp0RTbuff[6], endp0RTbuff[7]);
-#endif
+
     switch(SetupReqCode)
     {
-        case 0x02: //锟矫伙拷锟斤拷锟斤拷锟斤拷锟斤拷
+        case 0x02:
             switch(UsbSetupBuf->wIndex.bw.bb1)
             {
                 case 0x05:
@@ -368,36 +327,26 @@ UINT16 USB30_NonStandardReq()
             }
             break;
         default:
-            //        printf("stall\n");
             SetupReqCode = INVALID_REQ_CODE;
             return USB_DESCR_UNSUPPORTED;
             break;
     }
-    len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen; // 锟斤拷锟轿达拷锟戒长锟斤拷
+    len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen;
     if(endp_dir)
     {
-        memcpy(endp0RTbuff, pDescr, len); // device  /* 锟斤拷锟斤拷锟较达拷锟斤拷锟斤拷 */
+        memcpy(endp0RTbuff, pDescr, len);
         pDescr += len;
     }
     SetupLen -= len;
     return len;
 }
 
-/*******************************************************************************
- * @fn      USB30_StandardReq
- *
- * @brief   USB3.0锟斤拷准锟斤拷锟斤拷
- *
- * @return   锟斤拷锟斤拷
- */
 UINT16 USB30_StandardReq()
 {
     SetupReqCode = UsbSetupBuf->bRequest;
     SetupLen = UsbSetupBuf->wLength;
     UINT16 len = 0;
-#if 0
-    printf("S:%02x %02x\n", endp0RTbuff[0], endp0RTbuff[1]);
-#endif
+
     switch(SetupReqCode)
     {
         case USB_GET_DESCRIPTOR:
@@ -447,26 +396,26 @@ UINT16 USB30_StandardReq()
                             pDescr = (PUINT8)OSStringDescriptor;
                             break;
                         default:
-                            len = USB_DESCR_UNSUPPORTED;     //锟斤拷支锟街碉拷锟斤拷锟斤拷锟斤拷
-                            SetupReqCode = INVALID_REQ_CODE; //锟斤拷效锟斤拷锟斤拷锟斤拷锟斤拷
+                            len = USB_DESCR_UNSUPPORTED;
+                            SetupReqCode = INVALID_REQ_CODE;
                             break;
                     }
                     break;
                 default:
-                    len = USB_DESCR_UNSUPPORTED; //锟斤拷支锟街碉拷锟斤拷锟斤拷锟斤拷
+                    len = USB_DESCR_UNSUPPORTED;
                     SetupReqCode = INVALID_REQ_CODE;
                     break;
             }
-            len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen; //锟斤拷锟轿达拷锟戒长锟斤拷
-            memcpy(endp0RTbuff, pDescr, len);                           // device  /*锟斤拷锟斤拷锟较达拷锟斤拷锟斤拷 */
+            len = SetupLen >= ENDP0_MAXPACK ? ENDP0_MAXPACK : SetupLen;
+            memcpy(endp0RTbuff, pDescr, len);
             SetupLen -= len;
             pDescr += len;
             break;
         case USB_SET_ADDRESS:
-            SetupLen = UsbSetupBuf->wValue.bw.bb1; // 锟捷达拷USB锟借备锟斤拷址
+            SetupLen = UsbSetupBuf->wValue.bw.bb1;
             break;
         case 0x31:
-            SetupLen = UsbSetupBuf->wValue.bw.bb1; // 锟捷达拷USB锟借备锟斤拷址
+            SetupLen = UsbSetupBuf->wValue.bw.bb1;
             break;
         case 0x30:
             break;
@@ -485,21 +434,14 @@ UINT16 USB30_StandardReq()
         case USB_SET_INTERFACE:
             break;
         default:
-            len = USB_DESCR_UNSUPPORTED; //锟斤拷锟斤拷stall锟斤拷锟斤拷支锟街碉拷锟斤拷锟斤拷
+        	// stall
+            len = USB_DESCR_UNSUPPORTED;
             SetupReqCode = INVALID_REQ_CODE;
-            //        printf(" stall \n");
             break;
     }
     return len;
 }
 
-/*******************************************************************************
- * @fn      EP0_IN_Callback
- *
- * @brief   USB3.0锟剿碉拷0IN锟斤拷锟斤拷氐锟�
- *
- * @return   锟斤拷锟酵筹拷锟斤拷
- */
 UINT16 EP0_IN_Callback(void)
 {
     UINT16 len = 0;
@@ -515,26 +457,12 @@ UINT16 EP0_IN_Callback(void)
     return len;
 }
 
-/*******************************************************************************
- * @fn      EP0_OUT_Callback
- *
- * @brief   USB3.0锟剿碉拷0OUT锟截碉拷
- *
- * @return   锟斤拷锟斤拷
- */
 UINT16 EP0_OUT_Callback(void)
 {
     UINT16 len;
     return len;
 }
 
-/*******************************************************************************
- * @fn      USB30_Setup_Status
- *
- * @brief   USB3.0锟斤拷锟狡达拷锟斤拷状态锟阶段回碉拷
- *
- * @return   None
- */
 void USB30_Setup_Status(void)
 {
     switch(SetupReqCode)
@@ -547,32 +475,19 @@ void USB30_Setup_Status(void)
     }
 }
 
-/*******************************************************************************
- * @fn      USBSS_IRQHandler
- *
- * @brief   USB3.0 Interrupt Handler.
- *
- * @return   None
- */
 void USBSS_IRQHandler(void) //USBSS interrupt service
 {
     USB30_IRQHandler();
 }
 
-/*******************************************************************************
- * @fn      TMR0_IRQHandler
- *
- * @brief   USB3.0锟斤拷锟斤拷失锟杰筹拷时锟斤拷锟斤拷
- *
- * @return   None
- */
 void TMR0_IRQHandler()
 {
     R8_TMR0_INT_FLAG = RB_TMR_IF_CYC_END;
-    UART1_SendByte('T');
-    if(link_sta == 1)
+    DBG('T');
+
+    if(link_state == 1)
     {
-        link_sta = 0;
+        link_state = 0;
         PFIC_DisableIRQ(USBSS_IRQn);
         PFIC_DisableIRQ(LINK_IRQn);
         USB30D_init(DISABLE);
@@ -580,7 +495,7 @@ void TMR0_IRQHandler()
         return;
     }
 
-    if(link_sta != 3)
+    if(link_state != 3)
     {
         PFIC_DisableIRQ(USBSS_IRQn);
         PFIC_DisableIRQ(LINK_IRQn);
@@ -591,19 +506,12 @@ void TMR0_IRQHandler()
         USB20_Device_Init(ENABLE);
     }
 
-    link_sta = 1;
+    link_state = 1;
     R8_TMR0_INTER_EN = 0;
     PFIC_DisableIRQ(TMR0_IRQn);
     R8_TMR0_CTRL_MOD = RB_TMR_ALL_CLEAR;
 }
 
-/*******************************************************************************
- * @fn      LINK_IRQHandler
- *
- * @brief   USB3.0 Link Interrupt Handler.
- *
- * @return   None
- */
 void LINK_IRQHandler() //USBSS link interrupt service
 {
     if(USBSS->LINK_INT_FLAG & LINK_Ux_EXIT_FLAG) // device enter U2
@@ -622,8 +530,8 @@ void LINK_IRQHandler() //USBSS link interrupt service
             USBSS->LMP_TX_DATA2 = 0x0;
             tx_lmp_port = 0;
         }
-        //锟缴癸拷USB3.0通讯
-        link_sta = 3;
+
+        link_state = 3;
         PFIC_DisableIRQ(TMR0_IRQn);
         R8_TMR0_CTRL_MOD = RB_TMR_ALL_CLEAR;
         R8_TMR0_INTER_EN = 0;
@@ -640,7 +548,7 @@ void LINK_IRQHandler() //USBSS link interrupt service
     if(USBSS->LINK_INT_FLAG & LINK_DISABLE_FLAG) // GO DISABLED
     {
         USBSS->LINK_INT_FLAG = LINK_DISABLE_FLAG;
-        link_sta = 1;
+        link_state = 1;
         USB30D_init(DISABLE);
         PFIC_DisableIRQ(USBSS_IRQn);
         R8_TMR0_CTRL_MOD = RB_TMR_ALL_CLEAR;
@@ -726,22 +634,17 @@ void LINK_IRQHandler() //USBSS link interrupt service
 
 void EP1_IN_Callback(void)
 {
-    UINT8 packet_num;
-    packet_num = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
+    UINT8 nump;
+    nump = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
 
     USB30_IN_ClearIT(ENDP_1);
-    UART1_SendByte('I');
+    DBG('I');
+    DBG('0' + nump);
 
-    switch (packet_num) {
-        case 0: {                                                     // all sent
-            // wait for HSPI Rx
-            while (!(HSPI_Rx_End_Flag && !HSPI_Rx_End_Err)) {
-                if (HSPI_Rx_End_Flag && HSPI_Rx_End_Err) {
-                    PRINT("HRXERR\r\n");
-                }
-                UART1_SendByte('w');
-            }
-
+    switch (nump) {
+    	// all sent
+        case 0: {
+        	// TODO
             GPIOB_InverseBits(GPIO_Pin_23);
 
             break;
@@ -776,41 +679,39 @@ void EP1_OUT_Callback(void)
 {
     USB30_OUT_ClearIT(ENDP_1);
 
-    UART1_SendByte('O');
+    DBG('O');
     // rx_len is the packet length of the last packet
     UINT16 rx_len, i;
     UINT8  nump;
     UINT8  status;
-    USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status); //Get the number of received packets
-    UART1_SendByte('0' + nump);
+
+    USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status);
+    DBG('0' + nump);
 
     switch (nump) {
         case 0: {
-            R8_HSPI_INT_FLAG = 0xF;
-            R8_HSPI_CTRL |= RB_HSPI_SW_ACT;  // Trigger HSPI transmit
+        	USB3_Packet_Received = 1;
             break;
         }
 
         case 1: {
-            USB30_OUT_Set(ENDP_1, ACK, 1);    //able to receive a packet
-            USB30_Send_ERDY(ENDP_1 | OUT, 1); //通知锟斤拷锟斤拷锟铰凤拷1锟斤拷 Notify the host to deliver packet 1
+            USB30_OUT_Set(ENDP_1, ACK, 1);    // able to receive a packet
+            USB30_Send_ERDY(ENDP_1 | OUT, 1); // notify the host to deliver packet 1
             break;
         }
 
         case 2: {
-            USB30_OUT_Set(ENDP_1, ACK, 2);    //锟杰癸拷锟斤拷锟斤拷2锟斤拷 able to receive 2 packets
-            USB30_Send_ERDY(ENDP_1 | OUT, 2); //通知锟斤拷锟斤拷锟铰凤拷2锟斤拷 Notify the Host machin to deliver packet 2
+            USB30_OUT_Set(ENDP_1, ACK, 2);    // able to receive 2 packets
+            USB30_Send_ERDY(ENDP_1 | OUT, 2); // notify the Host machin to deliver packet 2
             break;
         }
 
         case 3: {
-            USB30_OUT_Set(ENDP_1, ACK, 3);    //锟杰癸拷锟斤拷锟斤拷3锟斤拷 able to receive 3 packets
-            USB30_Send_ERDY(ENDP_1 | OUT, 3); //通知锟斤拷锟斤拷锟铰凤拷3锟斤拷 notify the host machine to deliver packet 3
+            USB30_OUT_Set(ENDP_1, ACK, 3);    // able to receive 3 packets
+            USB30_Send_ERDY(ENDP_1 | OUT, 3); // notify the host machine to deliver packet 3
             break;
         }
     }
-
-    //PRINT("USB OUT %d done\r\n", nump);
 }
 
 void EP2_IN_Callback(void) { }
@@ -827,13 +728,5 @@ void EP5_OUT_Callback(void) { }
 void EP6_OUT_Callback(void) { }
 void EP7_OUT_Callback(void) { }
 
-/*******************************************************************************
- * @fn      USB30_ITP_Callback
- *
- * @brief   USB3.0 ITP锟截碉拷锟斤拷锟斤拷
- *
- * @return   None
- */
-void USB30_ITP_Callback(UINT32 ITPCounter)
-{
-}
+void USB30_ITP_Callback(UINT32 ITPCounter) { }
+

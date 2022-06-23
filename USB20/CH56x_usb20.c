@@ -29,7 +29,7 @@ DevInfo_Typedef  g_devInfo;
 static UINT8V SetupReqType = 0;    //主机请求描述符类型
 static UINT8V SetupReq = 0;        //主机请求描述符类型
 static PUINT8 pDescr;
-extern UINT8V link_sta;
+extern UINT8V link_state;
 
 /*
 extern UINT8 in_buf0[4096];
@@ -754,7 +754,7 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
 		USB20_Endp_Init();
 		USB20_Device_Setaddress( 0 );                          //总线复位 地址清0
 		R8_USB_INT_FG = RB_USB_IF_BUSRST;
-        if( link_sta == 1 )
+        if( link_state == 1 )
         {
             PFIC_EnableIRQ(USBSS_IRQn);
             PFIC_EnableIRQ(LINK_IRQn);

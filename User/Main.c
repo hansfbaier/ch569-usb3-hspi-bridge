@@ -15,26 +15,20 @@
 
 #include "zforth.h"
 
+#include "debug.h"
+
 /* Global define */
 #define  FREQ_SYS       96000000
 //#define  FREQ_SYS     120000000
 #define  UART1_BAUD     115200
 
+#ifdef ZFORTH
 /* Global Variables */
 static char buf[64];
-
 /* Function declaration */
 extern int forth_main();
+#endif
 
-/*******************************************************************************
- * @fn        DebugInit
- *
- * @brief     Initializes the UART1 peripheral.
- *
- * @param     baudrate: UART1 communication baud rate.
- *
- * @return    None
- */
 void DebugInit(UINT32 baudrate)
 {
     UINT32 x;
@@ -50,22 +44,21 @@ void DebugInit(UINT32 baudrate)
     R32_PA_DIR |= (1<<8);
 }
 
-__attribute__((aligned(16))) UINT8 out_buf0[4096]   __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 out_buf1[4096]   __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 in_buf0[4096]    __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 in_buf1[4096]    __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 out_buf0[4096] __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 out_buf1[4096] __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 in_buf0[4096]  __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) UINT8 in_buf1[4096]  __attribute__((section(".dmadata")));
 
 //////////////////////////////////////// HSPI ////////////////////////////////////
-//DMA_Len
-#define DMA_Len0   4096
-#define DMA_Len1   4096
+#define DMA_Len 4096
 
 /* Shared variables */
-volatile int HSPI_Tx_End_Flag = 0;  // Send completion flag
-volatile int HSPI_Rx_End_Flag = 0;  // Receive completion flag
-volatile int HSPI_Rx_End_Err = 0;   // 0=No Error else >0 Error code
-volatile int HSPI_Rx_Buf_Num = 0;
-volatile int HSPI_Tx_Buf_Num = 0;
+
+volatile int HSPI_Tx_End_Flag;
+volatile int HSPI_Rx_End_Flag;
+volatile int HSPI_Rx_End_Err; // 0=No Error else >0 Error code
+volatile int HSPI_Rx_Buf_Num;
+volatile int USB3_Packet_Received;
 
 void HSPI_GPIO_Init(void)
 {
@@ -79,13 +72,6 @@ void HSPI_GPIO_Init(void)
     R32_PA_DIR |= (1<<10);
 }
 
-/*******************************************************************************
- * @fn       HSPI_Init
- *
- * @brief    HSPI ��ʼ��
- *
- * @return   None
- */
 void HSPI_Init(void)
 {
     // GPIO Cfg
@@ -140,8 +126,8 @@ void HSPI_Init(void)
     R32_HSPI_TX_ADDR1 = (uint32_t)out_buf1;
     R32_HSPI_RX_ADDR1 = (uint32_t)in_buf1;
 
-    R16_HSPI_DMA_LEN0 = DMA_Len0 - 1;
-    R16_HSPI_DMA_LEN1 = DMA_Len1 - 1;;
+    R16_HSPI_DMA_LEN0 = DMA_Len - 1;
+    R16_HSPI_DMA_LEN1 = DMA_Len - 1;;
 
     //Enable HSPI  DMA
     R8_HSPI_CTRL |= RB_HSPI_ENABLE | RB_HSPI_DMA_EN;
@@ -154,13 +140,17 @@ void HSPI_Init(void)
 #include "zforth-dict.c"
 #endif
 
-/*********************************************************************
- * @fn      main
- *
- * @brief   Main program.
- *
- * @return  none
- */
+void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num) {
+	// swap packet buffers
+	// note that HSPI swaps them automatically
+	// starting the first transfer with out_buf0
+	USBSS->UEP1_RX_DMA = (UINT32) (UINT8*) (HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
+
+	// and signal USB3 we are ready to receive a new packet
+	USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
+	USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
+}
+
 int main()
 {
     SystemInit(FREQ_SYS);
@@ -172,7 +162,7 @@ int main()
     PRINT("System Clock=%d\r\n", FREQ_SYS);
 
     HSPI_Init();
-	mDelaymS(1000);
+	mDelaymS(100);
 
     PRINT("Initialize DMA buffers\r\n");
 
@@ -189,16 +179,16 @@ int main()
     PFIC_EnableIRQ(USBSS_IRQn);
     PFIC_EnableIRQ(LINK_IRQn);
 
-#ifdef USB3_TIMER
+#ifndef NO_USB3_TIMER
     PFIC_EnableIRQ(TMR0_IRQn);
     R8_TMR0_INTER_EN = RB_TMR_IE_CYC_END;
     TMR0_TimerInit(FREQ_SYS/2);
 #endif
 
-    USB30D_init(ENABLE);          //USB3.0 initialization Make sure that the two USB3.0 interrupts are enabled before initialization
+    USB30D_init(ENABLE);
 
-    //GPIOB_ModeCfg(GPIO_Pin_23, GPIO_Slowascent_PP_8mA);
-    //GPIOB_ModeCfg(GPIO_Pin_24, GPIO_Slowascent_PP_8mA);
+    GPIOB_ModeCfg(GPIO_Pin_23, GPIO_Slowascent_PP_8mA);
+    GPIOB_ModeCfg(GPIO_Pin_24, GPIO_Slowascent_PP_8mA);
 
 #ifdef ZFORTH
     zf_init(1);
@@ -244,18 +234,31 @@ int main()
     }
 #endif
 
-    int send_pending = 0;
+    // This flag is initialized to one, because
+    // on the first packet we do not want to wait for
+    // a previous packet transmit to complete
+    HSPI_Tx_End_Flag = 1;
 
+    // enable the first USB transfer
+	Enable_New_USB3_Transfer(1);
+
+    // We want to receive the new packet on USB3 while we are transmitting
+    // the last packet on HSPI.
     for(;;) {
-        if (HSPI_Tx_End_Flag) {
-            USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
-            USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
-            USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
-            HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-            HSPI_Tx_End_Flag = 0;
-            UART1_SendByte('0' + HSPI_Tx_Buf_Num);
-            send_pending = 0;
-        }
+		// spinlock until we get a new USB3 packet
+		while (!USB3_Packet_Received);
+		USB3_Packet_Received = 0;
+
+		// spinlock until HSPI finishes sending the current packet
+		while (!HSPI_Tx_End_Flag);
+		HSPI_Tx_End_Flag = 0;
+
+		int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+		Enable_New_USB3_Transfer(HSPI_Tx_Buf_Num);
+
+		// transmit HSPI packet
+		R8_HSPI_INT_FLAG = 0xF;
+		R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
     }
 }
 
@@ -322,14 +325,14 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
     // transmit
     if(R8_HSPI_INT_FLAG & RB_HSPI_IF_T_DONE) { // Single packet sending completed
         R8_HSPI_INT_FLAG = RB_HSPI_IF_T_DONE;  // Clear Interrupt
-        UART1_SendByte('T');
+        DBG('T');
         HSPI_Tx_End_Flag = 1;
     }
 
     // receive
     if(R8_HSPI_INT_FLAG & RB_HSPI_IF_R_DONE) {  // Single packet reception completed
         R8_HSPI_INT_FLAG = RB_HSPI_IF_R_DONE;  // Clear Interrupt
-        UART1_SendByte('R');
+        DBG('R');
 
         //UART1_SendByte('R');
         // Determine whether the CRC is correct
@@ -356,7 +359,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
             USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
             USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
 
-            UART1_SendByte('0' + HSPI_Rx_Buf_Num);
+            DBG('0' + HSPI_Rx_Buf_Num);
 
             HSPI_Rx_Buf_Num = (R8_HSPI_RX_SC & RB_HSPI_RX_TOG) >> 4;
         }
