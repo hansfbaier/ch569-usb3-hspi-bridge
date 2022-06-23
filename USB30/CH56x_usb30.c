@@ -33,7 +33,8 @@ __attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dma
 extern UINT8 in_buf0[4096];
 extern UINT8 out_buf0[4096];
 
-extern volatile int USB3_Packet_Received;
+extern volatile int USB3_OUT_Packet_Received;
+extern volatile int USB3_IN_Packet_Received;
 
 const UINT8 SS_DeviceDescriptor[] =
     {
@@ -634,17 +635,18 @@ void LINK_IRQHandler() //USBSS link interrupt service
 
 void EP1_IN_Callback(void)
 {
+    USB30_IN_ClearIT(ENDP_1);
+
     UINT8 nump;
     nump = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
 
-    USB30_IN_ClearIT(ENDP_1);
     DBG('I');
     DBG('0' + nump);
 
     switch (nump) {
     	// all sent
         case 0: {
-        	// TODO
+        	USB3_IN_Packet_Received = 1;
             break;
         }
 
@@ -677,18 +679,18 @@ void EP1_OUT_Callback(void)
 {
     USB30_OUT_ClearIT(ENDP_1);
 
-    DBG('O');
     // rx_len is the packet length of the last packet
     UINT16 rx_len, i;
     UINT8  nump;
     UINT8  status;
-
     USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status);
+
+    DBG('O');
     DBG('0' + nump);
 
     switch (nump) {
         case 0: {
-        	USB3_Packet_Received = 1;
+        	USB3_OUT_Packet_Received = 1;
             break;
         }
 
