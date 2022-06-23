@@ -131,14 +131,14 @@ void HSPI_Init(void)
 }
 
 void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num) {
-	// swap packet buffers
-	// note that HSPI swaps them automatically
-	// starting the first transfer with out_buf0
-	USBSS->UEP1_RX_DMA = (UINT32) (UINT8*) (HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
+    // swap packet buffers
+    // note that HSPI swaps them automatically
+    // starting the first transfer with out_buf0
+    USBSS->UEP1_RX_DMA = (UINT32) (UINT8*) (HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
 
-	// and signal USB3 we are ready to receive a new packet
-	USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
-	USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
+    // and signal USB3 we are ready to receive a new packet
+    USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
+    USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
 }
 
 int main()
@@ -152,7 +152,7 @@ int main()
     PRINT("System Clock=%d\r\n", FREQ_SYS);
 
     HSPI_Init();
-	mDelaymS(100);
+    mDelaymS(100);
 
     PRINT("Initialize DMA buffers\r\n");
 
@@ -186,29 +186,30 @@ int main()
     HSPI_Tx_End_Flag = 1;
 
     // enable the first USB transfer
-	Enable_New_USB3_Transfer(1);
+    Enable_New_USB3_Transfer(1);
 
     // We want to receive the new packet on USB3 while we are transmitting
     // the last packet on HSPI.
     for(;;) {
+
+        GPIOB_SetBits(GPIO_Pin_24);
+        // spinlock until HSPI finishes sending the current packet
+        while (!HSPI_Tx_End_Flag);
+        HSPI_Tx_End_Flag = 0;
+        GPIOB_ResetBits(GPIO_Pin_24);
+
         GPIOB_SetBits(GPIO_Pin_23);
-		// spinlock until we get a new USB3 packet
-		while (!USB3_Packet_Received);
-		USB3_Packet_Received = 0;
-	    GPIOB_ResetBits(GPIO_Pin_23);
+        // spinlock until we get a new USB3 packet
+        while (!USB3_Packet_Received);
+        USB3_Packet_Received = 0;
+        GPIOB_ResetBits(GPIO_Pin_23);
 
-	    GPIOB_SetBits(GPIO_Pin_24);
-		// spinlock until HSPI finishes sending the current packet
-		while (!HSPI_Tx_End_Flag);
-		HSPI_Tx_End_Flag = 0;
-	    GPIOB_ResetBits(GPIO_Pin_24);
+        int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+        Enable_New_USB3_Transfer(HSPI_Tx_Buf_Num);
 
-		int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-		Enable_New_USB3_Transfer(HSPI_Tx_Buf_Num);
-
-		// transmit HSPI packet
-		R8_HSPI_INT_FLAG = 0xF;
-		R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
+        // transmit HSPI packet
+        R8_HSPI_INT_FLAG = 0xF;
+        R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
     }
 }
 
