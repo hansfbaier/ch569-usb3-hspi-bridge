@@ -363,11 +363,12 @@ extern void USB30_Send_ERDY(UINT8 endp,UINT8 nump);
 extern void USB30_Device_Setaddress( UINT32 address );
 
 /*******************************************************************************
- * @fn      USB30_IN_Nump
+ * @fn      USB30_Setup_OutData
  *
- * @brief  获取端点剩余待发送的包数量
+ * @brief Get the number of packets remaining to be sent by the endpoint
  *
- * @return   控制传输数据阶段为OUT时，主机下发的数据长度
+ * @return controls the length of the data sent by the host
+ *         when the data transmission phase is OUT
  */
 extern UINT16 USB30_Setup_OutData(void);
 
