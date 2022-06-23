@@ -213,19 +213,22 @@ int main()
         R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
 
         // receive packets, if available
-        if (HSPI_Rx_End_Flag && USB3_IN_Packet_Received) {
+        if (USB3_IN_Packet_Received) {
+            if (HSPI_Rx_End_Flag) {
+                HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+                USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
+                if (HSPI_Rx_End_Err) {
+                    USB30_IN_Set(ENDP_1, ENABLE, STALL, DEF_ENDP1_IN_BURST_LEVEL, 1024);
+                } else {
+                    USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
+                }
+                USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
+            } else {
+                USB30_IN_Set(ENDP_1, ENABLE, NRDY, DEF_ENDP1_IN_BURST_LEVEL, 1024);
+            }
+
             HSPI_Rx_End_Flag = 0;
             USB3_IN_Packet_Received = 0;
-
-            HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-
-            USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
-            if (HSPI_Rx_End_Err) {
-                USB30_IN_Set(ENDP_1, ENABLE, STALL, DEF_ENDP1_IN_BURST_LEVEL, 1024);
-            } else {
-                USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
-            }
-            USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
         }
     }
 }
