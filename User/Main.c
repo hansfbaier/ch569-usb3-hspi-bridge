@@ -13,21 +13,12 @@
 #include "CH56x_usb20.h"
 #include "CH56x_uart.h"
 
-#include "zforth.h"
-
 #include "debug.h"
 
 /* Global define */
 #define  FREQ_SYS       96000000
 //#define  FREQ_SYS     120000000
 #define  UART1_BAUD     115200
-
-#ifdef ZFORTH
-/* Global Variables */
-static char buf[64];
-/* Function declaration */
-extern int forth_main();
-#endif
 
 void DebugInit(UINT32 baudrate)
 {
@@ -136,10 +127,6 @@ void HSPI_Init(void)
     PRINT("HSPI init done.\r\n");
 }
 
-#ifdef ZFORTH
-#include "zforth-dict.c"
-#endif
-
 void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num) {
 	// swap packet buffers
 	// note that HSPI swaps them automatically
@@ -190,50 +177,6 @@ int main()
     GPIOB_ModeCfg(GPIO_Pin_23, GPIO_Slowascent_PP_8mA);
     GPIOB_ModeCfg(GPIO_Pin_24, GPIO_Slowascent_PP_8mA);
 
-#ifdef ZFORTH
-    zf_init(1);
-#ifndef BOOTSTRAP
-    size_t len;
-    unsigned char *p = (unsigned char *)zf_dump(&len);
-    for (int i = 0; i < len; i++) p[i] = zforth_save[i];
-#endif
-    zf_bootstrap();
-#ifdef BOOTSTRAP
-    zf_eval(": emit 0 sys ;");
-    zf_eval(": . 1 sys ;");
-    zf_eval(": ! 0 !! ;");
-    zf_eval(": @ 0 @@ ;");
-    zf_eval(": , 0 ,, ;");
-    zf_eval(": # 0 ## ;");
-#endif
-
-    /* Main loop: read words and eval */
-    uint8_t l = 0;
-
-    for(;;) {
-            int c;
-            while (!R8_UART1_RFC);
-            c = R8_UART1_RBR;
-            UART1_SendByte(c);
-
-            if(c == '\n' || c == '\r') {
-                UART1_SendByte('\r');
-                UART1_SendByte('\n');
-                zf_result r = zf_eval(buf);
-                if (r != ZF_OK) {
-                    UART1_SendString("ERR\r\n", 5);
-                }
-                l = 0;
-            } else if (c == '\b') {
-                buf[l--] = 0;
-            } else if(l < sizeof(buf) - 1) {
-                    buf[l++] = c;
-            }
-
-            buf[l] = '\0';
-    }
-#endif
-
     // This flag is initialized to one, because
     // on the first packet we do not want to wait for
     // a previous packet transmit to complete
@@ -261,57 +204,6 @@ int main()
 		R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
     }
 }
-
-#ifdef ZFORTH
-zf_input_state zf_host_sys(zf_syscall_id id, const char *input)
-{
-        char buf[16];
-        int i;
-
-        switch((int)id) {
-
-                case ZF_SYSCALL_EMIT:
-                        UART1_SendByte((char)zf_pop());
-                        break;
-
-                case ZF_SYSCALL_PRINT:
-                        itoa(zf_pop(), buf, 10);
-                        while (buf[i]) {
-                            UART1_SendByte(buf[i++]);
-                        }
-                        UART1_SendByte(' ');
-                        break;
-
-                case ZF_SYSCALL_TELL: {
-                    zf_cell len = zf_pop();
-                    void *buf = (uint8_t *)zf_dump(NULL) + (int)zf_pop();
-                    (void)fwrite(buf, 1, len, stdout);
-                    fflush(stdout);
-                    break;
-                }
-        }
-
-        return 0;
-}
-
-zf_cell zf_host_parse_num(const char *buf)
-{
-        char *end;
-        zf_cell v = strtol(buf, &end, 0);
-        if(*end != '\0') {
-            zf_abort(ZF_ABORT_NOT_A_WORD);
-        }
-        return v;
-}
-
-void zf_host_trace(const char *fmt, va_list va)
-{
-        //UART1_SendString("\033[1;30m", 7);
-        vfprintf(stdout, fmt, va); fflush(stdout);
-        //UART1_SendString("\033[0m", 4);
-        UART1_SendByte('\r');
-}
-#endif
 
 /*********************************************************************
  * @fn      HSPI_IRQHandler
