@@ -1,12 +1,6 @@
-/********************************** (C) COPYRIGHT *******************************
-* File Name          : CH56x_usb30.c
-* Author             : WCH
-* Version            : V1.1
-* Date               : 2020/12/31
-* Description 		 :
-* Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
-* SPDX-License-Identifier: Apache-2.0
-*******************************************************************************/
+// Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
+// Copyright (c) 2022 Hans Baier (hansfbaier@gmail.com)
+// SPDX-License-Identifier: Apache-2.0
 #include "debug.h"
 #include "CH56x_common.h"
 #include "CH56xusb30_LIB.h"
@@ -264,9 +258,9 @@ UINT8 GetStatus[] =
 
 void USB30_BUS_RESET()
 {
-    USB30D_init(DISABLE); //USB3.0锟斤拷始锟斤拷
+    USB30D_init(DISABLE);
     mDelaymS(20);
-    USB30D_init(ENABLE); //USB3.0锟斤拷始锟斤拷
+    USB30D_init(ENABLE);
 }
 
 void USB30D_init(FunctionalState sta)
@@ -282,14 +276,16 @@ void USB30D_init(FunctionalState sta)
             while(1)
                 ;
         }
-        USBSS->UEP_CFG = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN; // set end point rx/tx enable
+        USBSS->UEP_CFG = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN;
 
         USBSS->UEP0_DMA = (UINT32)(UINT8 *)endp0RTbuff;
         USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
         USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
 
-        USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL); // endpoint1 receive setting
-        USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP2_IN_BURST_LEVEL, 1024); // endpoint1 send setting
+        // endpoint1 receive setting
+        USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
+        // endpoint1 send setting
+        USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP2_IN_BURST_LEVEL, 1024);
     }
     else
     {
@@ -469,14 +465,14 @@ void USB30_Setup_Status(void)
     switch(SetupReqCode)
     {
         case USB_SET_ADDRESS:
-            USB30_Device_Setaddress(SetupLen); // SET ADDRESS
+            USB30_Device_Setaddress(SetupLen);
             break;
         case 0x31:
             break;
     }
 }
 
-void USBSS_IRQHandler(void) //USBSS interrupt service
+void USBSS_IRQHandler(void)
 {
     USB30_IRQHandler();
 }
@@ -565,7 +561,7 @@ void LINK_IRQHandler() //USBSS link interrupt service
         USB30_Switch_Powermode(POWER_MODE_2);
     }
 
-    if(USBSS->LINK_INT_FLAG & TERM_PRESENT_FLAG) // term present , begin POLLING
+    if(USBSS->LINK_INT_FLAG & TERM_PRESENT_FLAG) // term present, begin POLLING
     {
         USBSS->LINK_INT_FLAG = TERM_PRESENT_FLAG;
         if(USBSS->LINK_STATUS & LINK_PRESENT)
@@ -602,7 +598,7 @@ void LINK_IRQHandler() //USBSS link interrupt service
         //        printf("warm reset\n");
     }
 
-    if(USBSS->LINK_INT_FLAG & HOT_RESET_FLAG) //锟斤拷锟斤拷锟斤拷锟杰伙拷锟铰凤拷hot reset,锟斤拷注锟斤拷说锟斤拷锟斤拷锟斤拷
+    if(USBSS->LINK_INT_FLAG & HOT_RESET_FLAG)
     {
         USBSS->USB_CONTROL |= 1 << 31;
         USBSS->LINK_INT_FLAG = HOT_RESET_FLAG; // HOT RESET begin

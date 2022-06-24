@@ -1,12 +1,7 @@
-/********************************** (C) COPYRIGHT *******************************
-* File Name          : Main.c
-* Author             : WCH
-* Version            : V1.1
-* Date               : 2020/12/23
-* Description 		 : 
-* Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
-* SPDX-License-Identifier: Apache-2.0
-*******************************************************************************/
+// Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
+// Copyright (c) 2022 Hans Baier (hansfbaier@gmail.com)
+// SPDX-License-Identifier: Apache-2.0
+
 #include "CH56x_common.h"
 #include "CH56xusb30_LIB.h"
 #include "CH56x_usb30.h"
