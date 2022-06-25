@@ -42,20 +42,26 @@ ep_in, ep_out = init()
 def sequence():
     ep_out.write(functools.reduce(lambda a,b: a + b, [i.to_bytes(4, 'little') for i in range(1024)]))
 
+def bytesequence():
+    ep_out.write([i & 0xff for i in range(4096)])
+
 def patterns():
     zeroes()
     ones()
     fives()
     aas()
 
-def aas():
-    ep_out.write([0xaa for i in range(4096)])
+def aas(len=4096):
+    ep_out.write([0xaa for i in range(len)])
 
-def fives():
-    ep_out.write([0x55 for i in range(4096)])
+def fives(len=4096):
+    ep_out.write([0x55 for i in range(len)])
 
-def ones():
-    ep_out.write([0xff for i in range(4096)])
+def ones(len=4096):
+    ep_out.write([0xff for i in range(len)])
 
-def zeroes():
-    ep_out.write([0x00 for i in range(4096)])
+def zeroes(len=4096):
+    ep_out.write([0x00 for i in range(len)])
+
+def read(len=4096):
+    return " ".join([hex(i) for i in ep_in.read(len)]) 
