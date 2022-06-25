@@ -2,6 +2,7 @@
 
 import usb.core
 import usb.util
+import functools
 
 def init():
     # find our device
@@ -38,7 +39,23 @@ def init():
 
 ep_in, ep_out = init()
 
-ep_out.write([0x00 for i in range(4096)]) 
-ep_out.write([0xff for i in range(4096)]) 
-ep_out.write([0x55 for i in range(4096)]) 
-ep_out.write([0xaa for i in range(4096)]) 
+def sequence():
+    ep_out.write(functools.reduce(lambda a,b: a + b, [i.to_bytes(4, 'little') for i in range(1024)]))
+
+def patterns():
+    zeroes()
+    ones()
+    fives()
+    aas()
+
+def aas():
+    ep_out.write([0xaa for i in range(4096)])
+
+def fives():
+    ep_out.write([0x55 for i in range(4096)])
+
+def ones():
+    ep_out.write([0xff for i in range(4096)])
+
+def zeroes():
+    ep_out.write([0x00 for i in range(4096)])
