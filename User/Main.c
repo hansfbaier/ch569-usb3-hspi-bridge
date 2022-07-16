@@ -67,6 +67,9 @@ void HSPI_Init(void)
     // GPIO Cfg
     HSPI_GPIO_Init();
 
+    // if we don't wait here we will get random CRC errors
+    mDelaymS(100);
+
     // Clear HSPI config
     R8_HSPI_CFG &= ~(RB_HSPI_MODE | RB_HSPI_MSK_SIZE);
 
@@ -118,7 +121,12 @@ void HSPI_Init(void)
 
     R16_HSPI_DMA_LEN0 = DMA_Len - 1;
     R16_HSPI_DMA_LEN1 = DMA_Len - 1;
-    ;
+
+    R16_HSPI_RX_LEN0 = 0; // 0 == 4096 bytes
+    R16_HSPI_RX_LEN1 = 0; // 0 == 4096 bytes
+
+    // Burst Disabled
+    R16_HSPI_BURST_CFG = 0x0000;
 
     // Enable HSPI  DMA
     R8_HSPI_CTRL |= RB_HSPI_ENABLE | RB_HSPI_DMA_EN;
