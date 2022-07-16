@@ -193,7 +193,7 @@ int main()
     PRINT("System Clock=%d\r\n", FREQ_SYS);
 
     HSPI_Init();
-    mDelaymS(100);
+    mDelaymS(500);
 
     PRINT("Initialize DMA buffers\r\n");
 
@@ -233,19 +233,18 @@ int main()
     // the last packet on HSPI.
     for (;;)
     {
-
-        GPIOB_SetBits(GPIO_Pin_24);
+        GPIOB_SetBits(GPIO_Pin_23);
         // spinlock until HSPI finishes sending the current packet
         while (!HSPI_Tx_End_Flag) if (USB3_IN_Token_Received) { Handle_USB_IN(); }
 
         HSPI_Tx_End_Flag = 0;
-        GPIOB_ResetBits(GPIO_Pin_24);
+        GPIOB_ResetBits(GPIO_Pin_23);
 
-        GPIOB_SetBits(GPIO_Pin_23);
+        GPIOB_SetBits(GPIO_Pin_24);
         // spinlock until we get a new USB3 packet
         while (!USB3_OUT_Token_Received) if (USB3_IN_Token_Received) { Handle_USB_IN(); }
         USB3_OUT_Token_Received = 0;
-        GPIOB_ResetBits(GPIO_Pin_23);
+        GPIOB_ResetBits(GPIO_Pin_24);
 
         int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
         Enable_New_USB3_Transfer(HSPI_Tx_Buf_Num);
@@ -275,7 +274,6 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         // Determine whether the CRC is correct
         if (R8_HSPI_RTX_STATUS & RB_HSPI_CRC_ERR)
         { // CRC check err
-            // R8_HSPI_CTRL &= ~RB_HSPI_ENABLE;
             DBG('c');
             HSPI_Rx_End_Err |= 1;
             HSPI_Rx_End_Flag = 1;
