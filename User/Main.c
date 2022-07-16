@@ -274,7 +274,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         // Determine whether the CRC is correct
         if (R8_HSPI_RTX_STATUS & RB_HSPI_CRC_ERR)
         { // CRC check err
-            DBG('c');
+            DBGERR('c');
             HSPI_Rx_End_Err |= 1;
             HSPI_Rx_End_Flag = 1;
         }
@@ -282,7 +282,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         // Whether the received serial number matches, (does not match, modify the packet serial number)
         if (R8_HSPI_RTX_STATUS & RB_HSPI_NUM_MIS)
         { // Mismatch
-            DBG('m');
+            DBGERR('m');
             HSPI_Rx_End_Err |= 2;
             HSPI_Rx_End_Flag = 1;
         }

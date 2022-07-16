@@ -14,5 +14,11 @@
 #define DBG(x)
 #endif
 
+#ifdef  DBGERR
+#define DBGERR(x) UART1_SendByte(x)
+#else
+#define DBGERR(x)
+#endif
+
 
 #endif /* USER_DEBUG_H_ */
