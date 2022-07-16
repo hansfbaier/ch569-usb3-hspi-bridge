@@ -3,6 +3,11 @@
 import usb.core
 import usb.util
 import functools
+from time import sleep
+from random import randrange
+
+def to_hex(l):
+    return " ".join([hex(i) for i in l])
 
 def init():
     # find our device
@@ -63,5 +68,21 @@ def ones(len=4096):
 def zeroes(len=4096):
     ep_out.write([0x00 for i in range(len)])
 
+def rand(len=4096):
+    r = [randrange(0, 256) for _ in range(len)]
+    ep_out.write(r)
+    return to_hex(r)
+
 def read(len=4096):
     return " ".join([hex(i) for i in ep_in.read(len)]) 
+
+def loop(length=4096):
+    while True:
+        r = rand(length)
+        sleep(0.001);
+        s = read(length)
+        if r == s:
+            print("OK")
+        else:
+            msg = "ERR: length " + str(len(s.split(' ')))
+            print(msg)
