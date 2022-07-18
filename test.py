@@ -44,11 +44,15 @@ def init():
 
 ep_in, ep_out = init()
 
-def sequence():
-    ep_out.write(functools.reduce(lambda a,b: a + b, [i.to_bytes(4, 'little') for i in range(1024)]))
+def sequence(ret=False):
+    seq = functools.reduce(lambda a,b: a + b, [i.to_bytes(4, 'little') for i in range(1024)])
+    ep_out.write(seq)
+    if ret: return to_hex(seq)
 
-def bytesequence():
-    ep_out.write([i & 0xff for i in range(4096)])
+def bytesequence(ret=False):
+    seq = [i & 0xff for i in range(4096)]
+    ep_out.write(seq)
+    if ret: return to_hex(seq)
 
 def patterns():
     zeroes()
@@ -76,13 +80,21 @@ def rand(len=4096):
 def read(len=4096):
     return " ".join([hex(i) for i in ep_in.read(len)]) 
 
+from os import system
+
 def loop(length=4096):
     while True:
-        r = rand(length)
-        sleep(0.001);
-        s = read(length)
+        r = bytesequence(length).replace(" ", "\n")
+        #sleep(0.0001);
+        s = read(length).replace(" ", "\n")
         if r == s:
             print("OK")
         else:
-            msg = "ERR: length " + str(len(s.split(' ')))
+            l = str(len(s.split('\n')))
+            msg = "ERR: length " + l
+            with open("/tmp/foo", 'w') as f:
+                f.write(r)
+            with open("/tmp/bar", 'w') as f:
+                f.write(s)
+            system("meld /tmp/foo /tmp/bar")
             print(msg)
