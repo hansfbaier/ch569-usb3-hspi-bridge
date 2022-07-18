@@ -149,29 +149,27 @@ void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num)
 
 void Handle_USB_IN()
 {
-	if (USB3_IN_Token_Received) {
-	    USB3_IN_Token_Received = 0;
+	USB3_IN_Token_Received = 0;
 
-	    HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-	    USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
+	HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+	USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
 
-	    if (HSPI_Rx_End_Flag)
-	    {
-	        DBG('0' + HSPI_Rx_Buf_Num);
-	        DBG('\r');
-	        DBG('\n');
+	if (HSPI_Rx_End_Flag)
+	{
+		DBG('0' + HSPI_Rx_Buf_Num);
+		DBG('\r');
+		DBG('\n');
 
-	        HSPI_Rx_End_Err = 0;
-	        HSPI_Rx_End_Flag = 0;
-	    }
-	    else
-	    {
-	        // We just send the last read buffer
-	        DBGERR('_'); DBGERR('0' + HSPI_Rx_Buf_Num);
-	    }
-		USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
-        USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
+		HSPI_Rx_End_Err = 0;
+		HSPI_Rx_End_Flag = 0;
 	}
+	else
+	{
+		// We just send the last read buffer
+		DBGERR('_'); DBGERR('0' + HSPI_Rx_Buf_Num);
+	}
+	USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
+	USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
 }
 
 int main()
