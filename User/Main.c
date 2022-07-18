@@ -151,14 +151,15 @@ void Handle_USB_IN()
 {
 	USB3_IN_Token_Received = 0;
 
-	HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-	USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
 
 	if (HSPI_Rx_End_Flag)
 	{
 		DBG('0' + HSPI_Rx_Buf_Num);
 		DBG('\r');
 		DBG('\n');
+
+		HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+		USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
 
 		HSPI_Rx_End_Err = 0;
 		HSPI_Rx_End_Flag = 0;

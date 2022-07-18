@@ -67,10 +67,14 @@ def fives(len=4096):
     ep_out.write([0x55 for i in range(len)])
 
 def ones(len=4096):
-    ep_out.write([0xff for i in range(len)])
+    r=[0xff for i in range(len)]
+    ep_out.write(r)
+    return to_hex(r)
 
 def zeroes(len=4096):
-    ep_out.write([0x00 for i in range(len)])
+    r = [0x00 for i in range(len)]
+    ep_out.write(r)
+    return to_hex(r)
 
 def rand(len=4096):
     r = [randrange(0, 256) for _ in range(len)]
@@ -83,8 +87,11 @@ def read(len=4096):
 from os import system
 
 def loop(length=4096):
+    toggle = False
     while True:
-        r = rand(length).replace(" ", "\n")
+        toggle = not toggle
+        r = ones(length) if toggle else zeroes(length)
+        r = r.replace(" ", "\n")
         #sleep(0.0001);
         s = read(length).replace(" ", "\n")
         if r == s:
