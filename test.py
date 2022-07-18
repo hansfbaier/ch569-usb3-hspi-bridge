@@ -92,9 +92,9 @@ def loop(length=4096):
         else:
             l = str(len(s.split('\n')))
             msg = "ERR: length " + l
+            print(msg)
             with open("/tmp/foo", 'w') as f:
                 f.write(r)
             with open("/tmp/bar", 'w') as f:
                 f.write(s)
             system("meld /tmp/foo /tmp/bar")
-            print(msg)
