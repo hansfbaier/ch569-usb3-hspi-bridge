@@ -9,13 +9,13 @@
 #define USER_DEBUG_H_
 
 #ifdef  DBG
-#define DBG(x) UART1_SendByte(x)
+#define DBG(x) UART1_SendByte((x))
 #else
 #define DBG(x)
 #endif
 
 #ifndef  DBGERR
-#define DBGERR(x) UART1_SendByte(x)
+#define DBGERR(x) UART1_SendByte((x))
 #else
 #define DBGERR(x)
 #endif

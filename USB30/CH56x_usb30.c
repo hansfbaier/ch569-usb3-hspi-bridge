@@ -641,6 +641,14 @@ void EP1_IN_Callback(void)
         case 0: {
             In_FIFO_Read_Pos = (In_FIFO_Read_Pos + 1) & 1;
             if (In_FIFO_Write_Pos != In_FIFO_Read_Pos) Enable_New_IN_Transfer(In_FIFO[In_FIFO_Read_Pos]);
+
+            // blink mark
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
             break;
         }
 
@@ -686,6 +694,16 @@ void EP1_OUT_Callback(void)
             // transmit HSPI packet
             R8_HSPI_INT_FLAG = 0xF;
             R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
+
+            // blink mark
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
             break;
         }
 

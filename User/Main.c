@@ -41,11 +41,16 @@ __attribute__((aligned(16))) UINT8 in_buf1[4096] __attribute__((section(".dmadat
 /* Shared variables */
 
 volatile int HSPI_Rx_End_Err; // 0=No Error else >0 Error code
-volatile int OUT_Level = 0;
 
-volatile int In_FIFO[];
+volatile int In_FIFO[2];
 volatile int In_FIFO_Write_Pos = 0;
 volatile int In_FIFO_Read_Pos  = 0;
+
+/*TODO
+volatile int Out_FIFO[2];
+volatile int Out_FIFO_Write_Pos = 0;
+volatile int Out_FIFO_Read_Pos  = 0;
+*/
 
 void HSPI_GPIO_Init(void)
 {
@@ -212,21 +217,17 @@ int main()
 
 __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
 {
-    int HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_RX_TOG) >> 4;
-    if (HSPI_Rx_Buf_Num)
-        GPIOB_SetBits(GPIO_Pin_24);
-    else
-        GPIOB_ResetBits(GPIO_Pin_24);
-
     // transmit
     if (R8_HSPI_INT_FLAG & RB_HSPI_IF_T_DONE)
     {                                         // Single packet sending completed
         DBG('T');
-        OUT_Level--;
         int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+
         Enable_New_OUT_Transfer(HSPI_Tx_Buf_Num);
 
         R8_HSPI_INT_FLAG = RB_HSPI_IF_T_DONE; // Clear Interrupt
+        GPIOB_SetBits(GPIO_Pin_24);
+        GPIOB_ResetBits(GPIO_Pin_24);
     }
 
     // receive
@@ -254,7 +255,14 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
             HSPI_Rx_End_Err = 0;
             if (In_FIFO_Read_Pos == In_FIFO_Write_Pos) Enable_New_IN_Transfer(In_FIFO[In_FIFO_Read_Pos]);
             In_FIFO_Write_Pos = (In_FIFO_Write_Pos + 1) & 1;
+
+            int HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_RX_TOG) >> 4;
             In_FIFO[In_FIFO_Write_Pos] = HSPI_Rx_Buf_Num;
+
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
+            GPIOB_SetBits(GPIO_Pin_24);
+            GPIOB_ResetBits(GPIO_Pin_24);
         }
 
         R8_HSPI_INT_FLAG = RB_HSPI_IF_R_DONE; // Clear Interrupt
