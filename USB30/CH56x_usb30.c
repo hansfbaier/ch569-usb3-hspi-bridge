@@ -637,7 +637,6 @@ void EP1_IN_Callback(void)
     nump = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
 
     DBG('I');
-    DBG('0' + nump);
 
     switch (nump) {
     	// all sent
@@ -682,7 +681,6 @@ void EP1_OUT_Callback(void)
     USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status);
 
     DBG('O');
-    DBG('0' + nump);
 
     switch (nump) {
         case 0: {

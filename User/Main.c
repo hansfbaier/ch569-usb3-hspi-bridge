@@ -142,6 +142,8 @@ void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num)
     // starting the first transfer with out_buf0
     USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
 
+    DBG('0' + HSPI_Tx_Buf_Num);
+
     // and signal USB3 we are ready to receive a new packet
     USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
     USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
@@ -149,28 +151,8 @@ void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num)
 
 void Handle_USB_IN()
 {
-	USB3_IN_Token_Received = 0;
-
-
-	if (HSPI_Rx_End_Flag)
-	{
-		DBG('0' + HSPI_Rx_Buf_Num);
-		DBG('\r');
-		DBG('\n');
-
-		HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-		USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
-
-		HSPI_Rx_End_Err = 0;
-		HSPI_Rx_End_Flag = 0;
-	}
-	else
-	{
-		// We just send the last read buffer
-		DBGERR('_'); DBGERR('0' + HSPI_Rx_Buf_Num);
-	}
-	USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
-	USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
+    USB3_IN_Token_Received = 0;
+    DBGERR('_'); DBGERR('0' + HSPI_Rx_Buf_Num);
 }
 
 int main()
@@ -226,14 +208,32 @@ int main()
     {
         GPIOB_SetBits(GPIO_Pin_23);
         // spinlock until HSPI finishes sending the current packet
-        while (!HSPI_Tx_End_Flag) if (USB3_IN_Token_Received) { Handle_USB_IN(); }
+        while (!HSPI_Tx_End_Flag);
 
         HSPI_Tx_End_Flag = 0;
         GPIOB_ResetBits(GPIO_Pin_23);
 
         GPIOB_SetBits(GPIO_Pin_24);
         // spinlock until we get a new USB3 packet
-        while (!USB3_OUT_Token_Received) if (USB3_IN_Token_Received) { Handle_USB_IN(); }
+        while (!USB3_OUT_Token_Received) {
+            if (HSPI_Rx_End_Flag)
+            {
+                HSPI_Rx_End_Err = 0;
+                HSPI_Rx_End_Flag = 0;
+
+                DBG('A');
+                DBG('\r');
+                DBG('\n');
+
+                HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+                USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf0 : in_buf1);
+
+                USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
+                USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
+            }
+
+            if (USB3_IN_Token_Received) { Handle_USB_IN(); }
+        }
         USB3_OUT_Token_Received = 0;
         GPIOB_ResetBits(GPIO_Pin_24);
 
@@ -267,7 +267,6 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         { // CRC check err
             DBGERR('c');
             HSPI_Rx_End_Err |= 1;
-            HSPI_Rx_End_Flag = 1;
         }
 
         // Whether the received serial number matches, (does not match, modify the packet serial number)
@@ -275,16 +274,16 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         { // Mismatch
             DBGERR('m');
             HSPI_Rx_End_Err |= 2;
-            HSPI_Rx_End_Flag = 1;
         }
 
         // The CRC is correct, the received serial number matches (data is received correctly)
         if (!(R8_HSPI_RTX_STATUS & (RB_HSPI_CRC_ERR | RB_HSPI_NUM_MIS)))
         {
             HSPI_Rx_End_Err = 0;
-            HSPI_Rx_End_Flag = 1;
             DBG('0' + HSPI_Rx_Buf_Num);
         }
+
+        HSPI_Rx_End_Flag = 1;
     }
 
     if (R8_HSPI_INT_FLAG & RB_HSPI_IF_FIFO_OV)
