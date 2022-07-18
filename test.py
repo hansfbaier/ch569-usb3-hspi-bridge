@@ -84,7 +84,7 @@ from os import system
 
 def loop(length=4096):
     while True:
-        r = bytesequence(length).replace(" ", "\n")
+        r = rand(length).replace(" ", "\n")
         #sleep(0.0001);
         s = read(length).replace(" ", "\n")
         if r == s:
