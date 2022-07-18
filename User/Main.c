@@ -32,9 +32,6 @@ void DebugInit(UINT32 baudrate)
 
 __attribute__((aligned(16))) UINT8 out_buf0[4096] __attribute__((section(".dmadata")));
 __attribute__((aligned(16))) UINT8 in_buf0[4096] __attribute__((section(".dmadata")));
-// unused. makes shure the buffers which are simultaneously accessed
-// are in different memory banks
-//__attribute__((aligned(16))) UINT8 separator[16384]  __attribute__((section(".dmadata")));
 __attribute__((aligned(16))) UINT8 out_buf1[4096] __attribute__((section(".dmadata")));
 __attribute__((aligned(16))) UINT8 in_buf1[4096] __attribute__((section(".dmadata")));
 
@@ -231,8 +228,6 @@ int main()
                 USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
                 USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
             }
-
-            if (USB3_IN_Token_Received) { Handle_USB_IN(); }
         }
         USB3_OUT_Token_Received = 0;
         GPIOB_ResetBits(GPIO_Pin_24);
