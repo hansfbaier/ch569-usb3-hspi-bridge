@@ -21,14 +21,17 @@ static UINT32 SetupLen = 0;
 static UINT8  SetupReqCode = 0;
 static PUINT8 pDescr;
 
+extern volatile int In_FIFO[];
+extern volatile int In_FIFO_Write_Pos;
+extern volatile int In_FIFO_Read_Pos;
+
+extern void Enable_New_IN_Transfer(int HSPI_Rx_Buf_Num);
+
 // Endpoint 0 data transceiver buffer
 __attribute__((aligned(16))) UINT8 endp0RTbuff[512] __attribute__((section(".dmadata")));
 
 extern UINT8 in_buf0[4096];
 extern UINT8 out_buf0[4096];
-
-extern volatile int USB3_OUT_Token_Received;
-extern volatile int USB3_IN_Token_Received;
 
 const UINT8 SS_DeviceDescriptor[] =
     {
@@ -276,16 +279,11 @@ void USB30D_init(FunctionalState sta)
             while(1)
                 ;
         }
-        USBSS->UEP_CFG = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN;
+        USBSS->UEP_CFG     = EP0_R_EN | EP0_T_EN | EP1_R_EN | EP1_T_EN;
 
-        USBSS->UEP0_DMA = (UINT32)(UINT8 *)endp0RTbuff;
+        USBSS->UEP0_DMA    = (UINT32)(UINT8 *)endp0RTbuff;
         USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
         USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
-
-        // endpoint1 receive setting
-        USB30_OUT_Set(ENDP_1, ACK, DEF_ENDP1_OUT_BURST_LEVEL);
-        // endpoint1 send setting
-        USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP2_IN_BURST_LEVEL, 1024);
     }
     else
     {
@@ -431,7 +429,7 @@ UINT16 USB30_StandardReq()
         case USB_SET_INTERFACE:
             break;
         default:
-        	// stall
+            // stall
             len = USB_DESCR_UNSUPPORTED;
             SetupReqCode = INVALID_REQ_CODE;
             break;
@@ -636,12 +634,13 @@ void EP1_IN_Callback(void)
     UINT8 nump;
     nump = USB30_IN_Nump(ENDP_1); //nump: Number of remaining packets to be sent
 
-    DBG('I');
+    DBG('<');
 
     switch (nump) {
-    	// all sent
+        // all sent
         case 0: {
-        	USB3_IN_Token_Received = 1;
+            In_FIFO_Read_Pos = (In_FIFO_Read_Pos + 1) & 1;
+            if (In_FIFO_Write_Pos != In_FIFO_Read_Pos) Enable_New_IN_Transfer(In_FIFO[In_FIFO_Read_Pos]);
             break;
         }
 
@@ -680,11 +679,13 @@ void EP1_OUT_Callback(void)
     UINT8  status;
     USB30_OUT_Status(ENDP_1, &nump, &rx_len, &status);
 
-    DBG('O');
+    DBG('>');
 
     switch (nump) {
         case 0: {
-        	USB3_OUT_Token_Received = 1;
+            // transmit HSPI packet
+            R8_HSPI_INT_FLAG = 0xF;
+            R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
             break;
         }
 

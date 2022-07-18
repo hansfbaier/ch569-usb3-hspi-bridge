@@ -40,12 +40,12 @@ __attribute__((aligned(16))) UINT8 in_buf1[4096] __attribute__((section(".dmadat
 
 /* Shared variables */
 
-volatile int HSPI_Tx_End_Flag;
-volatile int HSPI_Rx_End_Flag;
 volatile int HSPI_Rx_End_Err; // 0=No Error else >0 Error code
-volatile int USB3_OUT_Token_Received;
-volatile int USB3_IN_Token_Received;
-volatile int HSPI_Rx_Buf_Num = 0;
+volatile int OUT_Level = 0;
+
+volatile int In_FIFO[];
+volatile int In_FIFO_Write_Pos = 0;
+volatile int In_FIFO_Read_Pos  = 0;
 
 void HSPI_GPIO_Init(void)
 {
@@ -132,13 +132,14 @@ void HSPI_Init(void)
     PRINT("HSPI init done.\r\n");
 }
 
-void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num)
+void Enable_New_OUT_Transfer(int HSPI_Tx_Buf_Num)
 {
     // swap packet buffers
     // note that HSPI swaps them automatically
     // starting the first transfer with out_buf0
-    USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf0 : out_buf1);
+    USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf1 : out_buf0);
 
+    DBG('O');
     DBG('0' + HSPI_Tx_Buf_Num);
 
     // and signal USB3 we are ready to receive a new packet
@@ -146,10 +147,15 @@ void Enable_New_USB3_Transfer(int HSPI_Tx_Buf_Num)
     USB30_Send_ERDY(ENDP_1 | OUT, DEF_ENDP1_OUT_BURST_LEVEL);
 }
 
-void Handle_USB_IN()
+void Enable_New_IN_Transfer(int HSPI_Rx_Buf_Num)
 {
-    USB3_IN_Token_Received = 0;
-    DBGERR('_'); DBGERR('0' + HSPI_Rx_Buf_Num);
+    USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
+
+    DBG('I');
+    DBG('0' + HSPI_Rx_Buf_Num);
+
+    USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
+    USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL);
 }
 
 int main()
@@ -169,7 +175,7 @@ int main()
 
     for (int i = 0; i < 1024; i++)
     {
-        *(UINT32 *)(out_buf0 + i * 4) = 0x0a000000 + i;
+        *(UINT32 *)(out_buf0 + i * 4) = 0xa0000000 + i;
         *(UINT32 *)(out_buf1 + i * 4) = 0xb0000000 + i;
         *(UINT32 *)(in_buf0 + i * 4) = 0;
         *(UINT32 *)(in_buf1 + i * 4) = 0;
@@ -191,70 +197,41 @@ int main()
     GPIOB_ModeCfg(GPIO_Pin_23, GPIO_Slowascent_PP_8mA);
     GPIOB_ModeCfg(GPIO_Pin_24, GPIO_Slowascent_PP_8mA);
 
-    // This flag is initialized to one, because
-    // on the first packet we do not want to wait for
-    // a previous packet transmit to complete
-    HSPI_Tx_End_Flag = 1;
 
     // enable the first USB transfer
-    Enable_New_USB3_Transfer(1);
+    Enable_New_OUT_Transfer(0);
 
     // We want to receive the new packet on USB3 while we are transmitting
     // the last packet on HSPI.
     for (;;)
     {
         GPIOB_SetBits(GPIO_Pin_23);
-        // spinlock until HSPI finishes sending the current packet
-        while (!HSPI_Tx_End_Flag);
-
-        HSPI_Tx_End_Flag = 0;
         GPIOB_ResetBits(GPIO_Pin_23);
-
-        GPIOB_SetBits(GPIO_Pin_24);
-        // spinlock until we get a new USB3 packet
-        while (!USB3_OUT_Token_Received) {
-            if (HSPI_Rx_End_Flag)
-            {
-                HSPI_Rx_End_Err = 0;
-                HSPI_Rx_End_Flag = 0;
-
-                DBG('A');
-                DBG('\r');
-                DBG('\n');
-
-                HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-                USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf0 : in_buf1);
-
-                USB30_IN_Set(ENDP_1, ENABLE, ACK, DEF_ENDP1_IN_BURST_LEVEL, 1024);
-                USB30_Send_ERDY(ENDP_1 | IN, DEF_ENDP1_IN_BURST_LEVEL); // Notify the host to send 4 packets
-            }
-        }
-        USB3_OUT_Token_Received = 0;
-        GPIOB_ResetBits(GPIO_Pin_24);
-
-        int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
-        Enable_New_USB3_Transfer(HSPI_Tx_Buf_Num);
-
-        // transmit HSPI packet
-        R8_HSPI_INT_FLAG = 0xF;
-        R8_HSPI_CTRL |= RB_HSPI_SW_ACT;
     }
 }
 
 __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
 {
+    int HSPI_Rx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_RX_TOG) >> 4;
+    if (HSPI_Rx_Buf_Num)
+        GPIOB_SetBits(GPIO_Pin_24);
+    else
+        GPIOB_ResetBits(GPIO_Pin_24);
+
     // transmit
     if (R8_HSPI_INT_FLAG & RB_HSPI_IF_T_DONE)
     {                                         // Single packet sending completed
-        R8_HSPI_INT_FLAG = RB_HSPI_IF_T_DONE; // Clear Interrupt
         DBG('T');
-        HSPI_Tx_End_Flag = 1;
+        OUT_Level--;
+        int HSPI_Tx_Buf_Num = (R8_HSPI_TX_SC & RB_HSPI_TX_TOG) >> 4;
+        Enable_New_OUT_Transfer(HSPI_Tx_Buf_Num);
+
+        R8_HSPI_INT_FLAG = RB_HSPI_IF_T_DONE; // Clear Interrupt
     }
 
     // receive
     if (R8_HSPI_INT_FLAG & RB_HSPI_IF_R_DONE)
     {                                         // Single packet reception completed
-        R8_HSPI_INT_FLAG = RB_HSPI_IF_R_DONE; // Clear Interrupt
         DBG('R');
 
         // Determine whether the CRC is correct
@@ -275,17 +252,19 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void HSPI_IRQHandler(void)
         if (!(R8_HSPI_RTX_STATUS & (RB_HSPI_CRC_ERR | RB_HSPI_NUM_MIS)))
         {
             HSPI_Rx_End_Err = 0;
-            DBG('0' + HSPI_Rx_Buf_Num);
+            if (In_FIFO_Read_Pos == In_FIFO_Write_Pos) Enable_New_IN_Transfer(In_FIFO[In_FIFO_Read_Pos]);
+            In_FIFO_Write_Pos = (In_FIFO_Write_Pos + 1) & 1;
+            In_FIFO[In_FIFO_Write_Pos] = HSPI_Rx_Buf_Num;
         }
 
-        HSPI_Rx_End_Flag = 1;
+        R8_HSPI_INT_FLAG = RB_HSPI_IF_R_DONE; // Clear Interrupt
     }
 
     if (R8_HSPI_INT_FLAG & RB_HSPI_IF_FIFO_OV)
     {
-        R8_HSPI_INT_FLAG = RB_HSPI_IF_FIFO_OV; // Clear Interrupt
         DBG('o');
         HSPI_Rx_End_Err |= 4;
-        HSPI_Rx_End_Flag = 1;
+
+        R8_HSPI_INT_FLAG = RB_HSPI_IF_FIFO_OV; // Clear Interrupt
     }
 }
