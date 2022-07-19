@@ -5,6 +5,10 @@ import usb.util
 import functools
 from time import sleep
 from random import randrange
+import sys
+write = sys.stdout.write
+flush = sys.stdout.flush
+from os import system
 
 def to_hex(l):
     return " ".join([hex(i) for i in l])
@@ -84,22 +88,31 @@ def rand(len=4096):
 def read(len=4096):
     return " ".join([hex(i) for i in ep_in.read(len)]) 
 
-from os import system
 
 def loop(length=4096):
     toggle = False
     while True:
         toggle = not toggle
-        r = ones(length) if toggle else zeroes(length)
+        #r = ones(length) if toggle else zeroes(length)
+        r = rand(length)
         r = r.replace(" ", "\n")
-        #sleep(0.0001);
+        #sleep(0.3)
         s = read(length).replace(" ", "\n")
         if r == s:
-            print("OK")
+            #print("OK")
+            write('.')
+            flush()
         else:
             l = str(len(s.split('\n')))
-            msg = "ERR: length " + l
-            print(msg)
+            # msg = "ERR: length " + l
+            # print(msg)
+            if int(l) < length:
+                write('X')
+            elif int(l) == length:
+                write('Z')
+            flush()
+
+            continue
             with open("/tmp/foo", 'w') as f:
                 f.write(r)
             with open("/tmp/bar", 'w') as f:
