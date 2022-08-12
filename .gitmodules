@@ -1,0 +1,3 @@
+[submodule "bsp"]
+	path = wch-ch56x-bsp
+	url = git@github.com:hydrausb3/wch-ch56x-bsp.git

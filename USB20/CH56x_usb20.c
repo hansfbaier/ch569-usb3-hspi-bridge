@@ -13,36 +13,37 @@
 #include "CH56xusb30_LIB.h"
 
 /*
- * ´ËÀý³ÌÎªUSB 2.0 deviceÊ¹ÓÃÀý³Ì
- *  Ö÷»úÍ¨¹ý¶Ëµã1ÏÂ´«ºó£¬ ¿ÉÍ¨¹ý¶Ëµã1ÉÏ´«Ò»°ü
- *  Ö÷»ú¿ÉÖ±½ÓÁ¬Ðø´Ó¶Ëµã2 È¡Êý¾Ý
+ * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎªUSB 2.0 deviceÊ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ *  ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½Ëµï¿½1ï¿½Â´ï¿½ï¿½ï¿½ ï¿½ï¿½Í¨ï¿½ï¿½ï¿½Ëµï¿½1ï¿½Ï´ï¿½Ò»ï¿½ï¿½
+ *  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¶Ëµï¿½2 È¡ï¿½ï¿½ï¿½ï¿½
  */
 
 /* Global define */
 
 /* Global Variable */
-UINT16V  U20_EndpnMaxSize = 512;
-UINT16V  SetupReqLen=0;            //Ö÷»úÇëÇóÊý¾Ý³¤¶È
-UINT16V  SetupLen = 0;             //Êý¾Ý½×¶ÎÊµ¼Ê·¢ËÍ»ò½ÓÊÕµÄÊý¾Ý³¤¶È
-UINT32V seq_num = 0;
 DevInfo_Typedef  g_devInfo;
-static UINT8V SetupReqType = 0;    //Ö÷»úÇëÇóÃèÊö·ûÀàÐÍ
-static UINT8V SetupReq = 0;        //Ö÷»úÇëÇóÃèÊö·ûÀàÐÍ
-static PUINT8 pDescr;
-extern UINT8V link_state;
+static uint8_t  *pDescr;
+
+       volatile uint16_t  U20_EndpnMaxSize = 512;
+       volatile uint16_t  SetupReqLen=0;
+       volatile uint16_t  SetupLen = 0;
+       volatile uint32_t  seq_num = 0;
+static volatile uint8_t   SetupReqType = 0;
+static volatile uint8_t   SetupReq = 0;
+extern volatile uint8_t   link_state;
 
 /*
-extern UINT8 in_buf0[4096];
-extern UINT8 in_buf1[4096];
-extern UINT8 out_buf0[4096];
-extern UINT8 out_buf1[4096];
+extern uint8_t in_buf0[4096];
+extern uint8_t in_buf1[4096];
+extern uint8_t out_buf0[4096];
+extern uint8_t out_buf1[4096];
 */
 
-__attribute__ ((aligned(16))) UINT8 vendor_buff[16]  __attribute__((section(".DMADATA"))); //¶Ëµã0Êý¾ÝÊÕ·¢»º³åÇø
+__attribute__ ((aligned(16))) uint8_t vendor_buff[16]  __attribute__((section(".DMADATA")));
 /* Function declaration */
 void USBHS_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));           //USB2.0 interrupt service
 
-const UINT8 hs_device_descriptor[] =
+const uint8_t hs_device_descriptor[] =
 {
     0x12,   // bLength
     0x01,   // DEVICE descriptor type
@@ -64,7 +65,7 @@ const UINT8 hs_device_descriptor[] =
     0x01    // number of configurations
 };
 
-const UINT8 hs_config_descriptor[] =
+const uint8_t hs_config_descriptor[] =
 {
     0x09,   // length of this descriptor
     0x02,   // CONFIGURATION (2)
@@ -201,7 +202,7 @@ const UINT8 hs_config_descriptor[] =
 // ====================================
 // ===== String Descriptor Lang ID=====
 // ====================================
-const UINT8 hs_string_descriptor0[] =
+const uint8_t hs_string_descriptor0[] =
 {
     0x04,   // this descriptor length
     0x03,   // descriptor type
@@ -211,7 +212,7 @@ const UINT8 hs_string_descriptor0[] =
 // ====================================
 // =====   String Descriptor 1    =====
 // ====================================
-const UINT8 hs_string_descriptor1[] =
+const uint8_t hs_string_descriptor1[] =
 {
     0x08,   // length of this descriptor
     0x03,
@@ -225,10 +226,10 @@ const UINT8 hs_string_descriptor1[] =
 // ====================================
 // =====   String Descriptor 2    =====
 // ====================================
-const UINT8 hs_string_descriptor2[]=
+const uint8_t hs_string_descriptor2[]=
 {
-    38,         //¸ÃÃèÊö·ûµÄ³¤¶ÈÎª38×Ö½Ú
-    0x03,       //×Ö·û´®ÃèÊö·ûµÄÀàÐÍ±àÂëÎª0x03
+    38,
+    0x03,
     0x57, 0x00, //W
     0x43, 0x00, //C
     0x48, 0x00, //H
@@ -248,7 +249,7 @@ const UINT8 hs_string_descriptor2[]=
     0x45, 0x00, //E
     0x20, 0x00  //
 };
-const UINT8 hs_bos_descriptor[] =
+const uint8_t hs_bos_descriptor[] =
 {
     0x05,   // length of this descriptor
     0x0f,   // CONFIGURATION (2)
@@ -281,7 +282,7 @@ const UINT8 hs_bos_descriptor[] =
 /*******************************************************************************
  * @fn     USB20_Endp_Init
  *
- * @brief   USB2.0¶Ëµã³õÊ¼»¯
+ * @brief   USB2.0
  *
  * @return  None
  */
@@ -301,10 +302,10 @@ void USB20_Endp_Init ()	// USBHS device endpoint initial
     R16_UEP6_MAX_LEN = 512;
     R16_UEP7_MAX_LEN = 512;
 
-    R32_UEP0_RT_DMA = (UINT32)(UINT8 *)endp0RTbuff;
+    R32_UEP0_RT_DMA = (uint32_t)(uint8_t *)endp0RTbuff;
 
-    //R32_UEP1_TX_DMA = (UINT32)(UINT8 *)in_buf0;
-	//R32_UEP1_RX_DMA = (UINT32)(UINT8 *)out_buf0;
+    //R32_UEP1_TX_DMA = (uint32_t)(uint8_t *)in_buf0;
+	//R32_UEP1_RX_DMA = (uint32_t)(uint8_t *)out_buf0;
 
 	R16_UEP0_T_LEN = 0;
 	R8_UEP0_TX_CTRL = 0;
@@ -341,18 +342,18 @@ void USB20_Endp_Init ()	// USBHS device endpoint initial
 /*******************************************************************************
  * @fn      USB20_Device_Init
  *
- * @brief   USB2.0Éè±¸³õÊ¼»¯
+ * @brief   USB2.0
  *
  * @param   sta -
- *            ENABLE - Ê¹ÄÜ
- *            DISABLE - ¹Ø±Õ
+ *            ENABLE -
+ *            DISABLE -
  *
  * @return   None
  */
 void USB20_Device_Init ( FunctionalState sta )  // USBHS device initial
 {
-    UINT16 i;
-    UINT32 *p;
+    uint16_t i;
+    uint32_t *p;
     if(sta)
     {
         R8_USB_CTRL = 0;
@@ -369,13 +370,13 @@ void USB20_Device_Init ( FunctionalState sta )  // USBHS device initial
 /*******************************************************************************
  * @fn      USB20_Device_setaddress
  *
- * @brief   USB2.0ÉèÖÃÉè±¸µØÖ·
+ * @brief   USB2.0
  *
  * @param   address
  *
  * @return  None
  **/
-void USB20_Device_Setaddress( UINT32 address )
+void USB20_Device_Setaddress( uint32_t address )
 {
     R8_USB_DEV_AD = address; // SET ADDRESS
 }
@@ -386,9 +387,9 @@ void USB20_Device_Setaddress( UINT32 address )
  *
  * @return   None
  */
-UINT16 U20_NonStandard_Request_Deal()
+uint16_t U20_NonStandard_Request_Deal()
 {
-  UINT16 len = 0;
+  uint16_t len = 0;
 
   return len;
 }
@@ -400,10 +401,10 @@ UINT16 U20_NonStandard_Request_Deal()
  *
  * @return   None
  */
-UINT16 U20_Standard_Request_Deal()
+uint16_t U20_Standard_Request_Deal()
 {
-  UINT16 len = 0;
-  UINT8 endp_dir;
+  uint16_t len = 0;
+  uint8_t endp_dir;
   SetupLen = 0;
   endp_dir = UsbSetupBuf->bRequestType & 0x80;
   switch( SetupReq )
@@ -412,28 +413,27 @@ UINT16 U20_Standard_Request_Deal()
     {
         switch( ( ( UsbSetupBuf->wValue.w ) >> 8 ) )
         {
-            case USB_DESCR_TYP_DEVICE:              /*»ñÈ¡Éè±¸ÃèÊö·û */
-                pDescr = (UINT8 *)hs_device_descriptor;
+            case USB_DESCR_TYP_DEVICE:
+                pDescr = (uint8_t *)hs_device_descriptor;
                 SetupLen = ( SetupReqLen > sizeof(hs_device_descriptor) )? sizeof(hs_device_descriptor):SetupReqLen;
                 break;
-            case USB_DESCR_TYP_CONFIG:               /*»ñÈ¡ÅäÖÃÃèÊö·û */
-                pDescr = (UINT8 *)hs_config_descriptor;
+            case USB_DESCR_TYP_CONFIG:
+                pDescr = (uint8_t *)hs_config_descriptor;
                 SetupLen = ( SetupReqLen > sizeof(hs_config_descriptor) )? sizeof(hs_config_descriptor):SetupReqLen;
                 break;
-            case USB_DESCR_TYP_STRING:                /*»ñÈ¡×Ö·û´®ÃèÊö·û*/
+            case USB_DESCR_TYP_STRING:
                 switch( ( UsbSetupBuf->wValue.w ) & 0xff )
                 {
-                    case USB_DESCR_LANGID_STRING:                        /*ÓïÑÔ×Ö·û´®ÃèÊö·û */
-
-                        pDescr = (UINT8 *)hs_string_descriptor0;
+                    case USB_DESCR_LANGID_STRING:
+                        pDescr = (uint8_t *)hs_string_descriptor0;
                         SetupLen = ( SetupReqLen > sizeof(hs_string_descriptor0) )? sizeof(hs_string_descriptor0):SetupReqLen;
                         break;
-                    case USB_DESCR_VENDOR_STRING:                        /*²úÉÌ×Ö·û´®ÃèÊö·û */
-                        pDescr = (UINT8 *)hs_string_descriptor1;
+                    case USB_DESCR_VENDOR_STRING:
+                        pDescr = (uint8_t *)hs_string_descriptor1;
                         SetupLen = ( SetupReqLen > sizeof(hs_string_descriptor1) )? sizeof(hs_string_descriptor1):SetupReqLen;
                         break;
-                    case USB_DESCR_PRODUCT_STRING:                        /*²úÆ·×Ö·û´®ÃèÊö·û */
-                        pDescr =(UINT8 *) hs_string_descriptor2;
+                    case USB_DESCR_PRODUCT_STRING:
+                        pDescr =(uint8_t *) hs_string_descriptor2;
                         SetupLen = ( SetupReqLen > sizeof(hs_string_descriptor2) )? sizeof(hs_string_descriptor2):SetupReqLen;;
                         break;
                     case USB_DESCR_SERIAL_STRING:
@@ -444,7 +444,7 @@ UINT16 U20_Standard_Request_Deal()
                 }
                 break;
             case USB_DESCR_TYP_BOS:
-                 pDescr =(UINT8 *) hs_bos_descriptor;
+                 pDescr =(uint8_t *) hs_bos_descriptor;
                  SetupLen = ( SetupReqLen > sizeof(hs_bos_descriptor) )? sizeof(hs_bos_descriptor):SetupReqLen;
                  break;
             default :
@@ -453,15 +453,15 @@ UINT16 U20_Standard_Request_Deal()
         }
     }
         break;
-    case USB_SET_ADDRESS:             /*ÉèÖÃµØÖ· */
+    case USB_SET_ADDRESS:
         g_devInfo.dev_addr = ( UsbSetupBuf->wValue.w )& 0xff;
         break;
-    case USB_GET_CONFIGURATION:       /*»ñÈ¡ÅäÖÃÖµ */
+    case USB_GET_CONFIGURATION:
         endp0RTbuff[ 0 ] = g_devInfo.dev_config_value;
         SetupLen = 1;
         break;
 
-    case USB_SET_CONFIGURATION:       /*ÉèÖÃÅäÖÃÖµ */
+    case USB_SET_CONFIGURATION:
         if( (R8_USB_SPD_TYPE & RB_USBSPEED_MASK)  == UST_FS )
         {
             U20_EndpnMaxSize = 64;
@@ -474,9 +474,8 @@ UINT16 U20_Standard_Request_Deal()
         g_devInfo.dev_enum_status = 0x01;
         break;
 
-    case USB_CLEAR_FEATURE:             /*Çå³ýÌØÐÔ */
-        if( ( UsbSetupBuf->bRequestType & USB_REQ_RECIP_MASK ) == USB_REQ_RECIP_ENDP )  /*Çå³ý¶Ëµã */
-        {
+    case USB_CLEAR_FEATURE:
+        if( ( UsbSetupBuf->bRequestType & USB_REQ_RECIP_MASK ) == USB_REQ_RECIP_ENDP )        {
             switch( ( UsbSetupBuf->wIndex.w ) & 0xff )      /* wIndexL */
             {
                 case 0x82:
@@ -510,12 +509,12 @@ UINT16 U20_Standard_Request_Deal()
             SetupLen = USB_DESCR_UNSUPPORTED;
         }
         break;
-    case USB_SET_FEATURE:        /*ÉèÖÃÌØÐÔ */
-        if( ( UsbSetupBuf->bRequestType & 0x1F ) == 0x00 )            /*ÉèÖÃÉè±¸ */
+    case USB_SET_FEATURE:
+        if( ( UsbSetupBuf->bRequestType & 0x1F ) == 0x00 )
         {
             if( UsbSetupBuf->wValue.w == 0x01 )
             {
-                if( hs_config_descriptor[ 7 ] & 0x20 )                    /*ÉèÖÃ»½ÐÑÊ¹ÄÜ±êÖ¾ */
+                if( hs_config_descriptor[ 7 ] & 0x20 )
                 {
                     g_devInfo.dev_sleep_status = 0x01;
                 }
@@ -529,25 +528,25 @@ UINT16 U20_Standard_Request_Deal()
                 SetupLen = USB_DESCR_UNSUPPORTED;
             }
         }
-        else if( ( UsbSetupBuf->bRequestType & 0x1F ) == 0x02 )            /*ÉèÖÃ¶Ëµã */
+        else if( ( UsbSetupBuf->bRequestType & 0x1F ) == 0x02 )
         {
-            if( UsbSetupBuf->wValue.w == 0x00 )                           /*ÉèÖÃÖ¸¶¨¶ËµãSTALL */
+            if( UsbSetupBuf->wValue.w == 0x00 )
             {
                 switch( ( UsbSetupBuf->wIndex.w ) & 0xff )
                 {
-                    case 0x82:        /*ÉèÖÃ¶Ëµã2 IN STALL */
+                    case 0x82:        /*ï¿½ï¿½ï¿½Ã¶Ëµï¿½2 IN STALL */
                         R8_UEP2_TX_CTRL = ( R8_UEP2_TX_CTRL & ~RB_UEP_TRES_MASK ) | UEP_T_RES_STALL;
                         break;
 
-                    case 0x02:        /*ÉèÖÃ¶Ëµã2 OUT Stall */
+                    case 0x02:        /*ï¿½ï¿½ï¿½Ã¶Ëµï¿½2 OUT Stall */
                         R8_UEP2_RX_CTRL = ( R8_UEP2_RX_CTRL & ~RB_UEP_RRES_MASK ) | UEP_R_RES_STALL;
                         break;
 
-                    case 0x81:         /*ÉèÖÃ¶Ëµã1 IN STALL */
+                    case 0x81:         /*ï¿½ï¿½ï¿½Ã¶Ëµï¿½1 IN STALL */
                         R8_UEP1_TX_CTRL = ( R8_UEP1_TX_CTRL & ~RB_UEP_TRES_MASK ) | UEP_T_RES_STALL;
                         break;
 
-                    case 0x01:        /*ÉèÖÃ¶Ëµã1 OUT STALL */
+                    case 0x01:        /*ï¿½ï¿½ï¿½Ã¶Ëµï¿½1 OUT STALL */
                         R8_UEP1_RX_CTRL = ( R8_UEP1_RX_CTRL & ~RB_UEP_RRES_MASK ) | UEP_R_RES_STALL;
                         break;
 
@@ -570,7 +569,7 @@ UINT16 U20_Standard_Request_Deal()
         break;
     case USB_SET_INTERFACE:
         break;
-    case USB_GET_STATUS:              /*¸ù¾Ýµ±Ç°¶ËµãÊµ¼Ê×´Ì¬½øÐÐÓ¦´ð */
+    case USB_GET_STATUS:
         endp0RTbuff[ 0 ] = 0x00;
         endp0RTbuff[ 1 ] = 0x00;
         SetupLen = 2;
@@ -611,16 +610,16 @@ UINT16 U20_Standard_Request_Deal()
         SetupLen = USB_DESCR_UNSUPPORTED;
         break;
    }
-  /* ÅÐ¶ÏÊÇ·ñ¿ÉÒÔÕý³£´¦Àí */
+  /* ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
   if( (SetupLen != USB_DESCR_UNSUPPORTED) && (SetupLen != 0))
   {
-      len = ( SetupLen >= U20_UEP0_MAXSIZE ) ? U20_UEP0_MAXSIZE : SetupLen;                //·µ»Ø·¢ËÍ³¤¶È
+      len = ( SetupLen >= U20_UEP0_MAXSIZE ) ? U20_UEP0_MAXSIZE : SetupLen;
       if(endp_dir)
       {
-          memcpy( endp0RTbuff, pDescr, len );                                               //Êý¾Ý½×¶ÎÎªIN ×¼±¸ºÃÊý¾ÝÖÁ»º³åÇø
+          memcpy( endp0RTbuff, pDescr, len );
           pDescr += len;
       }
-      SetupLen -= len;                                                                     //Ê£ÓàÎ´·¢ËÍÊý¾Ý³¤¶È
+      SetupLen -= len;
   }
    return len;
 }
@@ -634,35 +633,35 @@ UINT16 U20_Standard_Request_Deal()
  */
 void USBHS_IRQHandler(void)			                                //USBHS interrupt severice
 {
-	UINT32 end_num;
-	UINT32 rx_token;
-	UINT16 ret_len,i;
-	UINT16 rxlen;
-	UINT8  *p8;
-	UINT8 int_flg;
+	uint32_t end_num;
+	uint32_t rx_token;
+	uint16_t ret_len,i;
+	uint16_t rxlen;
+	uint8_t  *p8;
+	uint8_t int_flg;
 	int_flg = R8_USB_INT_FG;
-	if( int_flg & RB_USB_IF_SETUOACT )                   //SETUPÖÐ¶Ï
+	if( int_flg & RB_USB_IF_SETUOACT )                   //SETUPï¿½Ð¶ï¿½
 	{
 #if 0
 		 printf("SETUP :");
-		 p8 = (UINT8 *)endp0RTbuff;
+		 p8 = (uint8_t *)endp0RTbuff;
 		 for(i=0; i<8; i++)  { printf("%02x ", *p8++); }
 		 printf("\n");
 #endif
 		 SetupReqType = UsbSetupBuf->bRequestType;
 		 SetupReq = UsbSetupBuf->bRequest;
-		 SetupReqLen = UsbSetupBuf->wLength;   //Êý¾Ý³¤¶È
+		 SetupReqLen = UsbSetupBuf->wLength;   //ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
 
-         /*·ÖÎöÖ÷»úÇëÇó*/
-		 if((UsbSetupBuf->bRequestType & USB_REQ_TYP_MASK) != USB_REQ_TYP_STANDARD)   //·Ç±ê×¼ÇëÇó
+         /*ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½*/
+		 if((UsbSetupBuf->bRequestType & USB_REQ_TYP_MASK) != USB_REQ_TYP_STANDARD)
          {
              ret_len =  U20_NonStandard_Request_Deal();
          }
-         else                                                                        //±ê×¼ÇëÇó
+         else
          {
              ret_len = U20_Standard_Request_Deal();
          }
-		 if(ret_len == 0xFFFF)                                                  //²»Ö§³ÖµÄÃèÊö·û
+		 if(ret_len == 0xFFFF)
          {
               R16_UEP0_T_LEN = 0;
               R8_UEP0_TX_CTRL = UEP_T_RES_STALL ;
@@ -671,32 +670,32 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
          else
          {
               R16_UEP0_T_LEN = ret_len;
-              R8_UEP0_TX_CTRL = UEP_T_RES_ACK | RB_UEP_T_TOG_1;           //Êý¾Ý¹ý³Ì»ò×´Ì¬¹ý³Ì
+              R8_UEP0_TX_CTRL = UEP_T_RES_ACK | RB_UEP_T_TOG_1;
               R8_UEP0_RX_CTRL = UEP_R_RES_ACK | RB_UEP_R_TOG_1;
          }
 		R8_USB_INT_FG = RB_USB_IF_SETUOACT;              // clear int flag
 	}
-	else if( int_flg & RB_USB_IF_TRANSFER )        //ÊÂÎñ´«ÊäÍê³ÉÖÐ¶Ï
+	else if( int_flg & RB_USB_IF_TRANSFER )
 	{
-		end_num =   R8_USB_INT_ST & 0xf;                 //µ±Ç°²úÉúÖÐ¶ÏµÄ¶Ëµã
-		rx_token = ( (R8_USB_INT_ST )>>4) & 0x3;           //ÖÐ¶ÏÀàÐÍ  00: OUT, 01:SOF, 10:IN, 11:SETUP
+		end_num =   R8_USB_INT_ST & 0xf;
+		rx_token = ( (R8_USB_INT_ST )>>4) & 0x3;
 #if 0
 		if( !(R8_USB_INT_ST & RB_USB_ST_TOGOK) )
 		{
 			printf(" TOG MATCH FAIL : ENDP %x token %x \n", end_num, rx_token);
 		}
 #endif
-		switch( end_num )                                 //¶ËµãºÅ
+		switch( end_num )
 		{
 		   case 0:
-                if( rx_token == PID_IN )                                        //¶ËµãÁã ·¢ËÍÍê³ÉÖÐ¶Ï
+                if( rx_token == PID_IN )
                 {
                     ret_len = U20_Endp0_IN_Callback();
-                    if(ret_len == 0)                                            //Êý¾Ý·¢ËÍÍê³É
+                    if(ret_len == 0)
                     {
-                        R8_UEP0_RX_CTRL = UEP_R_RES_ACK | RB_UEP_R_TOG_1;       //×´Ì¬¹ý³ÌÎªOUT
-                        R16_UEP0_T_LEN = 0;                                     //Çå·¢ËÍ³¤¶È
-                        R8_UEP0_TX_CTRL = 0;                                    //Çå·¢ËÍ¿ØÖÆÆ÷
+                        R8_UEP0_RX_CTRL = UEP_R_RES_ACK | RB_UEP_R_TOG_1;
+                        R16_UEP0_T_LEN = 0;
+                        R8_UEP0_TX_CTRL = 0;
                     }
                     else
                     {
@@ -705,20 +704,20 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
                         R8_UEP0_TX_CTRL = ( R8_UEP0_TX_CTRL &~RB_UEP_TRES_MASK )| UEP_T_RES_ACK ;
                     }
                 }
-                else if( rx_token == PID_OUT )                                   //¶ËµãÁã ½ÓÊÕÍê³ÉÖÐ¶Ï
+                else if( rx_token == PID_OUT )
                 {
                     SetupLen -= SetupLen > R16_USB_RX_LEN ? R16_USB_RX_LEN :SetupLen;
-                    if( SetupLen > 0 )                                                          //»¹ÓÐÊý¾Ý´ý½ÓÊÕ
+                    if( SetupLen > 0 )
                     {
                        R8_UEP0_RX_CTRL ^=RB_UEP_R_TOG_1;
                        R8_UEP0_RX_CTRL = ( R8_UEP0_RX_CTRL &~RB_UEP_RRES_MASK) | UEP_R_RES_ACK;
 
                     }
-                    else                        //ÎÞÊý¾Ý½ÓÊÕ
+                    else                        //ï¿½ï¿½ï¿½ï¿½ï¿½Ý½ï¿½ï¿½ï¿½
                     {
-                        R16_UEP0_T_LEN = 0;                                      //×´Ì¬¹ý³Ì·¢Áã³¤¶È°ü
-                        R8_UEP0_TX_CTRL = UEP_T_RES_ACK | RB_UEP_T_TOG_1;        //×´Ì¬¹ý³ÌÎªIN
-                        R8_UEP0_RX_CTRL = 0 ;                                    //ÎÞÊý¾Ý½ÓÊÕ  ½ÓÊÕ×´Ì¬Áã
+                        R16_UEP0_T_LEN = 0;
+                        R8_UEP0_TX_CTRL = UEP_T_RES_ACK | RB_UEP_T_TOG_1;
+                        R8_UEP0_RX_CTRL = 0 ;
                     }
                 }
                 break;
@@ -726,20 +725,20 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
 		       if( rx_token == PID_IN )
 		       {
                    R16_UEP1_T_LEN = 0;
-                   R8_UEP1_TX_CTRL ^= RB_UEP_T_TOG_1;                                               //·­×ªÏÂ´Î×¼±¸·¢ËÍµÄÍ¬²½´¥·¢Î»
+                   R8_UEP1_TX_CTRL ^= RB_UEP_T_TOG_1;
                    R8_UEP1_TX_CTRL = (R8_UEP1_TX_CTRL & ~RB_UEP_RRES_MASK) | UEP_R_RES_NAK;
 
-                   R8_UEP1_RX_CTRL ^= RB_UEP_R_TOG_1;                                                //ÏÈ·­×ª1ºÅ¶Ëµã½ÓÊÕÆÚÍûµÄÍ¬²½´¥·¢Î»
-                   R8_UEP1_RX_CTRL = (R8_UEP1_RX_CTRL & ~RB_UEP_RRES_MASK) | UEP_R_RES_ACK;          //1ºÅ¶Ëµã½ÓÊÕÖÃACK
+                   R8_UEP1_RX_CTRL ^= RB_UEP_R_TOG_1;
+                   R8_UEP1_RX_CTRL = (R8_UEP1_RX_CTRL & ~RB_UEP_RRES_MASK) | UEP_R_RES_ACK;
 		       }
 		       else if(rx_token == PID_OUT)
 		       {
 		           rxlen = R16_USB_RX_LEN;
-                   R8_UEP1_RX_CTRL = (R8_UEP1_RX_CTRL & ~RB_UEP_RRES_MASK) | UEP_R_RES_NAK;     //1ºÅ¶Ëµã½ÓÊÕÖÃNAK
+                   R8_UEP1_RX_CTRL = (R8_UEP1_RX_CTRL & ~RB_UEP_RRES_MASK) | UEP_R_RES_NAK;
 
-		           //R32_UEP1_TX_DMA = (UINT32)(UINT8 *)out_buf0;
-		           R16_UEP1_T_LEN =  rxlen;                                                     //ÉèÖÃ1ºÅ¶Ëµã·¢ËÍ³¤¶È
-		           R8_UEP1_TX_CTRL = (R8_UEP1_TX_CTRL &~RB_UEP_TRES_MASK)|UEP_T_RES_ACK;        //Æô¶¯·¢ËÍ ÖÃACK
+		           //R32_UEP1_TX_DMA = (uint32_t)(uint8_t *)out_buf0;
+		           R16_UEP1_T_LEN =  rxlen;
+		           R8_UEP1_TX_CTRL = (R8_UEP1_TX_CTRL &~RB_UEP_TRES_MASK)|UEP_T_RES_ACK;
 		       }
 		       break;
 
@@ -747,12 +746,12 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
                 break;
 
 		}
-		R8_USB_INT_FG = RB_USB_IF_TRANSFER;               //ÇåUSBÊÂÎñÍê³ÉÖÐ¶Ï
+		R8_USB_INT_FG = RB_USB_IF_TRANSFER;
 	}
-	else if( int_flg & RB_USB_IF_BUSRST )           //×ÜÏß¸´Î»ÖÐ¶Ï
+	else if( int_flg & RB_USB_IF_BUSRST )
 	{
 		USB20_Endp_Init();
-		USB20_Device_Setaddress( 0 );                          //×ÜÏß¸´Î» µØÖ·Çå0
+		USB20_Device_Setaddress( 0 );
 		R8_USB_INT_FG = RB_USB_IF_BUSRST;
         if( link_state == 1 )
         {
@@ -760,11 +759,11 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
             PFIC_EnableIRQ(LINK_IRQn);
             PFIC_EnableIRQ(TMR0_IRQn);
             R8_TMR0_INTER_EN = 1;
-            TMR0_TimerInit( 67000000 );   //Ô¼0.5Ãë
+            TMR0_TimerInit( 67000000 );   //Ô¼0.5
             USB30D_init(ENABLE);
        }
 	}
-	else if( int_flg & RB_USB_IF_SUSPEND )         //¹ÒÆðÖÐ¶Ï
+	else if( int_flg & RB_USB_IF_SUSPEND )
 	{
 		R8_USB_INT_FG = RB_USB_IF_SUSPEND;
 	}
@@ -777,9 +776,9 @@ void USBHS_IRQHandler(void)			                                //USBHS interrupt 
  *
  * @return   None
  */
-UINT16 U20_Endp0_IN_Callback(void)
+uint16_t U20_Endp0_IN_Callback(void)
 {
-    UINT16 len = 0;
+    uint16_t len = 0;
     switch(SetupReq)
     {
       case USB_GET_DESCRIPTOR:
@@ -796,5 +795,3 @@ UINT16 U20_Endp0_IN_Callback(void)
     }
     return len;
 }
-
-

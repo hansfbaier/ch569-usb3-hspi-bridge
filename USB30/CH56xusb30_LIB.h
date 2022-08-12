@@ -22,23 +22,23 @@ extern "C" {
 #define CFG_EQ_EN               (1<<6)
 #define DEEMPH_CFG              (1<<8)
 
-#define POWER_MODE_0            ((UINT32)0x00000000)
-#define POWER_MODE_1            ((UINT32)0x00000001)
-#define POWER_MODE_2            ((UINT32)0x00000002)
-#define POWER_MODE_3            ((UINT32)0x00000003)
+#define POWER_MODE_0            ((uint32_t)0x00000000)
+#define POWER_MODE_1            ((uint32_t)0x00000001)
+#define POWER_MODE_2            ((uint32_t)0x00000002)
+#define POWER_MODE_3            ((uint32_t)0x00000003)
 
 #define LINK_PRESENT            (1<<0)
-#define RX_WARM_RESET           ((UINT32)1<<1)
+#define RX_WARM_RESET           ((uint32_t)1<<1)
 
 #define LINK_TXEQ               (1<<6)
 #define GO_DISABLED             (1<<4)
 #define POLLING_EN              (1<<12)
 
-#define TX_HOT_RESET            ((UINT32)1<<16)
-#define RX_HOT_RESET            ((UINT32)1<<24)
+#define TX_HOT_RESET            ((uint32_t)1<<16)
+#define RX_HOT_RESET            ((uint32_t)1<<24)
 
-#define TX_WARM_RESET           ((UINT32)1<<8)
-#define TX_Ux_EXIT              ((UINT32)1<<9)
+#define TX_WARM_RESET           ((uint32_t)1<<8)
+#define TX_Ux_EXIT              ((uint32_t)1<<9)
 // link int flag
 #define LINK_RDY_FLAG           (1<<0)
 #define LINK_RECOV_FLAG         (1<<1)
@@ -108,25 +108,25 @@ typedef enum _DEVICE_STATE
 /*********************/
 typedef union
 {
-  UINT16 w;
+  uint16_t w;
   struct BW
   {
-    UINT8 bb1; //低字节
-    UINT8 bb0;
+    uint8_t bb1; //锟斤拷锟街斤拷
+    uint8_t bb0;
   }
   bw;
 } UINT16_UINT8;
 /**********standard request command***********/
 typedef struct __PACKED
 {
-    UINT8       bRequestType;
-    UINT8       bRequest;
+    uint8_t       bRequestType;
+    uint8_t       bRequest;
     UINT16_UINT8 wValue;
     UINT16_UINT8 wIndex;
-    UINT16       wLength;
+    uint16_t       wLength;
 } *PUSB_SETUP;
 
-#define UsbSetupBuf     ((PUSB_SETUP)endp0RTbuff)//端点0
+#define UsbSetupBuf     ((PUSB_SETUP)endp0RTbuff)//锟剿碉拷0
 #define ENDP0_MAXPACK       512
 
 // status response
@@ -174,48 +174,38 @@ typedef struct __PACKED
 /*******************************************************************************
  * @fn      USB30_Device_Init
  *
- * @brief   USB3.0 Device初始化
- *
  * @return   None
  */
-extern UINT8 USB30_Device_Init(void);
+extern uint8_t USB30_Device_Init(void);
 
 /*******************************************************************************
  * @fn      USB30_Lib_Getversion
  *
- * @brief   USB3.0 Device子程序库初始化
- *
  * @return   None
  */
-extern UINT8 USB30_Lib_Getversion(void);
+extern uint8_t USB30_Lib_Getversion(void);
 
 /*******************************************************************************
  * @fn      USB30_ISO_Setendp
  *
- * @brief   配置同步端点
- *
  * @return   None
  */
-extern void USB30_ISO_Setendp(UINT8 num,FunctionalState Status );
+extern void USB30_ISO_Setendp(uint8_t num,FunctionalState Status );
 
 /*******************************************************************************
- * @fn       USB30_ISO_Setdelay( UINT32 dly )
+ * @fn       USB30_ISO_Setdelay( uint32_t dly )
  *
- * @brief   设置同步延迟时间
- *
- * @param dly - 延迟时间
+ * @param dly -
  *
  * @return   None
  */
-extern void USB30_ISO_Setdelay( UINT32 dly );
+extern void USB30_ISO_Setdelay( uint32_t dly );
 
 /*******************************************************************************
  * @fn       USB30_ITP_Enable
  *
- * @brief   USB ITP使能
  *
  * @param Status - enable/disable
- *
  * @return   None
  */
 extern void USB30_ITP_Enable(FunctionalState Status);
@@ -223,159 +213,140 @@ extern void USB30_ITP_Enable(FunctionalState Status);
 /*******************************************************************************
  * @fn     USB30_OUT_Status
  *
- * @brief  获取端点接收数据长度
  *
- * @param  endp - 端点号
- *         nump - 端点剩余可接收的包数量
- *         len -  端点接收的数据长度，对于突发传输表示端点接收到的最后一包的包长度
- *         status -  表示主机是否还有数据包待下发， 1-此次突发结束 收到非满包 0-主机还有数据包下发
- *
+ * @param  endp -
+ *         nump -
+ *         len -
+ *         status -
  * @return   None
  */
-extern void USB30_OUT_Status(UINT8 endp,UINT8 *nump,UINT16 *len,UINT8 *status);
+extern void USB30_OUT_Status(uint8_t endp,uint8_t *nump,uint16_t *len,uint8_t *status);
 
 /*******************************************************************************
  * @fn     USB30_OUT_Set
  *
- * @brief  端点接收设置
  *
- * @param  endp - 将要设置的端点号
- *         nump - 端点剩余可接收的包数量
- *         status -  端点状态    0-NRDY,1-ACK,2-STALL
- *
+ * @param  endp -
+ *         nump -
+ *         status - 状态    0-NRDY,1-ACK,2-STALL
  * @return   None
  */
-extern void USB30_OUT_Set(UINT8 endp,UINT8 status,UINT8 nump);
+extern void USB30_OUT_Set(uint8_t endp,uint8_t status,uint8_t nump);
 
 /*******************************************************************************
  * @fn     USB30_OUT_ClearIT
  *
- * @brief  清除OUT事务完成中断,仅保留包序列号
- *
- * @param  endp - 将要设置的端点号
+ * @param  endp -
  *
  * @return   None
  */
-extern void USB30_OUT_ClearIT(UINT8 endp);
+extern void USB30_OUT_ClearIT(uint8_t endp);
 
 /*******************************************************************************
  * @fn     USB30_OUT_ClearPendingIT
  *
- * @brief  清除OUT事务完成中断，保留端点其他配置
- *
- * @param  endp - 将要设置的端点号
+ * @param  endp -
  *
  * @return   None
  */
-extern void USB30_OUT_ClearPendingIT(UINT8 endp);
+extern void USB30_OUT_ClearPendingIT(uint8_t endp);
 
 /*******************************************************************************
  * @fn     USB30_OUT_ITflag
  *
- * @brief  获取OUT事务完成中断标志
+ * @param  endp -
  *
- * @param  endp - 将要设置的端点号
- *
- * @return   1 - 有中断 0 - 无中断
+ * @return   1 -
  */
-extern UINT8 USB30_OUT_ITflag(UINT8 endp);
+extern uint8_t USB30_OUT_ITflag(uint8_t endp);
 
 /*******************************************************************************
  * @fn      USB30_IN_Set
  *
- * @brief  Endpoint send settings
  *
- * @param  endp - 端点号
- *         lpf -  end of burst标志   1-enable 0-disable
+ * @param  endp -
+ *         lpf -  end of burst 1-enable 0-disable
  *         nump -  The number of packets the endpoint can send
  *         status - endpoint status  0-NRDY,1-ACK,2-STALL
  *         TxLen - The data length of the last packet sent by the endpoint
  *
  * @return   None
  */
-extern void USB30_IN_Set(UINT8 endp, FunctionalState lpf, UINT8 status, UINT8 nump, UINT16 TxLen);
+extern void USB30_IN_Set(uint8_t endp, FunctionalState lpf, uint8_t status, uint8_t nump, uint16_t TxLen);
 
 /*******************************************************************************
  * @fn     USB30_IN_ClearPendingIT
  *
- * @brief  清除IN事务完成中断，保留端点其他配置
  *
- * @param  endp - 端点号
+ * @param  endp -
  *
  * @return   None
  */
-extern void USB30_IN_ClearPendingIT(UINT8 endp);
+extern void USB30_IN_ClearPendingIT(uint8_t endp);
 
 /*******************************************************************************
  * @fn      USB30_IN_ClearIT
  *
- * @brief  清除IN事务中断与端点其余状态，仅保留包序列号
  *
- * @param  endp - 端点号
+ * @param  endp -
  *
  * @return   None
  */
-extern void USB30_IN_ClearIT(UINT8 endp);
+extern void USB30_IN_ClearIT(uint8_t endp);
 
 /*******************************************************************************
  * @fn       USB30_IN_ITflagT
  *
- * @brief  获取IN事务完成中断标志
  *
- * @param  endp - 将要设置的端点号
+ * @param  endp -
  *
  * @return   None
  */
-extern UINT8 USB30_IN_ITflag(UINT8 endp);
+extern uint8_t USB30_IN_ITflag(uint8_t endp);
 
 /*******************************************************************************
  * @fn       USB30_IN_Nump
  *
- * @brief  获取端点剩余待发送的包数量
  *
- * @param  endp - 端点号
+ * @param  endp -
  *
- * @return   剩余待发送包数量
+ * @return
  */
-extern UINT8 USB30_IN_Nump(UINT8 endp);
+extern uint8_t USB30_IN_Nump(uint8_t endp);
 
 /*******************************************************************************
  * @fn      USB30_Send_ERDY
  *
- * @brief  端点流控设置  发送ERDY包
  *
- * @param  endp - 端点号   最高位表方向，低四位为端点号
- *         nump -  端点接收或发送的数据包数量
+ * @param  endp -
+ *         nump -
  *
  * @return   None
  */
-extern void USB30_Send_ERDY(UINT8 endp,UINT8 nump);
+extern void USB30_Send_ERDY(uint8_t endp,uint8_t nump);
 
 /*******************************************************************************
  * @fn       USB30_Device_Setaddress
  *
- * @brief  设置设备地址
  *
- * @param  address - 将要设置的地址
+ * @param  address -
  *
  * @return   None
  */
-extern void USB30_Device_Setaddress( UINT32 address );
+extern void USB30_Device_Setaddress( uint32_t address );
 
 /*******************************************************************************
  * @fn      USB30_Setup_OutData
  *
- * @brief Get the number of packets remaining to be sent by the endpoint
  *
  * @return controls the length of the data sent by the host
  *         when the data transmission phase is OUT
  */
-extern UINT16 USB30_Setup_OutData(void);
+extern uint16_t USB30_Setup_OutData(void);
 
 /*******************************************************************************
  * @fn      USB30_IRQHandler
  *
- * @brief  USB3.0中断处理
  *
  * @return   None
  */
@@ -384,43 +355,38 @@ extern void USB30_IRQHandler();
 /*******************************************************************************
  * @fn      USB30_StandardReq
  *
- * @brief  USB设备模式标准请求命令处理
  *
- * @return   主机请求设备发送的数据长度
+ * @return
  */
-extern UINT16 USB30_StandardReq();
+extern uint16_t USB30_StandardReq();
 
 /*******************************************************************************
  * @fn      USB30_NonStandardReq
  *
- * @brief  USB设备模式非标准请求命令处理
  *
- * @return   主机请求设备发送的数据长度
+ * @return
  */
-extern UINT16 USB30_NonStandardReq();
+extern uint16_t USB30_NonStandardReq();
 
 /*******************************************************************************
  * @fn      EP0_IN_Callback
  *
- * @brief  端点0 IN传输完成回调函数
  *
- * @return   一次IN传输响应发送的数据长度
+ * @return
  */
-extern UINT16 EP0_IN_Callback();
+extern uint16_t EP0_IN_Callback();
 
 /*******************************************************************************
  * @fn      EP0_OUT_Callback
  *
- * @brief  端点0 OUT传输完成回调函数
  *
  * @return   None
  */
-extern UINT16 EP0_OUT_Callback();
+extern uint16_t EP0_OUT_Callback();
 
 /*******************************************************************************
  * @fn      USB30_Setup_Status
  *
- * @brief   控制传输状态阶段
  *
  * @return   None
  */
@@ -429,25 +395,22 @@ extern void USB30_Setup_Status();
 /*******************************************************************************
  * @fn      USB30_ITP_Callback
  *
- * @brief   ITP回调函数
  *
  * @return   None
  */
-extern void USB30_ITP_Callback(UINT32 ITPCounter);
+extern void USB30_ITP_Callback(uint32_t ITPCounter);
 
 /*******************************************************************************
  * @fn      USB30_switch_pwr_mode
  *
- * @brief   切换USB3.0 电源模式
  *
  * @return   None
  */
-extern void USB30_Switch_Powermode( UINT8 pwr_mode );
+extern void USB30_Switch_Powermode( uint8_t pwr_mode );
 
 /*******************************************************************************
  * @fn      EPn_IN_Callback()
  *
- * @brief   端点n IN事务处理回调函数
  *
  * @return   None
  */
@@ -462,7 +425,6 @@ extern void  EP7_IN_Callback(void);
 /*******************************************************************************
  * @fn      EPn_IN_Callback()
  *
- * @brief   端点n OUT事务处理回调函数
  *
  * @return   None
  */

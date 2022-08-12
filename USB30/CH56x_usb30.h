@@ -48,8 +48,8 @@ extern "C" {
 
 /* Global Variable */
 //data send and receive buffers
-extern __attribute__ ((aligned(16))) UINT8  endp0RTbuff[512] __attribute__((section(".DMADATA")));
-extern __attribute__ ((aligned(16))) UINT8  endp1RTbuff[4096] __attribute__((section(".DMADATA")));
+extern __attribute__ ((aligned(16))) uint8_t  endp0RTbuff[512] __attribute__((section(".DMADATA")));
+extern __attribute__ ((aligned(16))) uint8_t  endp1RTbuff[4096] __attribute__((section(".DMADATA")));
 
 /* Function declaration */
 void USB30D_init(FunctionalState sta);

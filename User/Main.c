@@ -15,10 +15,10 @@
 //#define  FREQ_SYS     120000000
 #define UART1_BAUD 115200
 
-void DebugInit(UINT32 baudrate)
+void DebugInit(uint32_t baudrate)
 {
-    UINT32 x;
-    UINT32 t = FREQ_SYS;
+    uint32_t x;
+    uint32_t t = FREQ_SYS;
     x = 10 * t * 2 / 16 / baudrate;
     x = (x + 5) / 10;
     R8_UART1_DIV = 1;
@@ -30,10 +30,10 @@ void DebugInit(UINT32 baudrate)
     R32_PA_DIR |= (1 << 8);
 }
 
-__attribute__((aligned(16))) UINT8 out_buf0[4096] __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 in_buf0[4096] __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 out_buf1[4096] __attribute__((section(".dmadata")));
-__attribute__((aligned(16))) UINT8 in_buf1[4096] __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) uint8_t out_buf0[4096] __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) uint8_t in_buf0[4096] __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) uint8_t out_buf1[4096] __attribute__((section(".dmadata")));
+__attribute__((aligned(16))) uint8_t in_buf1[4096] __attribute__((section(".dmadata")));
 
 //////////////////////////////////////// HSPI ////////////////////////////////////
 #define DMA_Len 4096
@@ -142,7 +142,7 @@ void Enable_New_OUT_Transfer(int HSPI_Tx_Buf_Num)
     // swap packet buffers
     // note that HSPI swaps them automatically
     // starting the first transfer with out_buf0
-    USBSS->UEP1_RX_DMA = (UINT32)(UINT8 *)(HSPI_Tx_Buf_Num ? out_buf1 : out_buf0);
+    USBSS->UEP1_RX_DMA = (uint32_t)(uint8_t *)(HSPI_Tx_Buf_Num ? out_buf1 : out_buf0);
 
     DBG('O');
     DBG('0' + HSPI_Tx_Buf_Num);
@@ -154,7 +154,7 @@ void Enable_New_OUT_Transfer(int HSPI_Tx_Buf_Num)
 
 void Enable_New_IN_Transfer(int HSPI_Rx_Buf_Num)
 {
-    USBSS->UEP1_TX_DMA = (UINT32)(UINT8 *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
+    USBSS->UEP1_TX_DMA = (uint32_t)(uint8_t *)(HSPI_Rx_Buf_Num ? in_buf1 : in_buf0);
 
     DBG('I');
     DBG('0' + HSPI_Rx_Buf_Num);
@@ -180,10 +180,10 @@ int main()
 
     for (int i = 0; i < 1024; i++)
     {
-        *(UINT32 *)(out_buf0 + i * 4) = 0xa0000000 + i;
-        *(UINT32 *)(out_buf1 + i * 4) = 0xb0000000 + i;
-        *(UINT32 *)(in_buf0 + i * 4) = 0;
-        *(UINT32 *)(in_buf1 + i * 4) = 0;
+        *(uint32_t *)(out_buf0 + i * 4) = 0xa0000000 + i;
+        *(uint32_t *)(out_buf1 + i * 4) = 0xb0000000 + i;
+        *(uint32_t *)(in_buf0 + i * 4) = 0;
+        *(uint32_t *)(in_buf1 + i * 4) = 0;
     }
 
     // USB init

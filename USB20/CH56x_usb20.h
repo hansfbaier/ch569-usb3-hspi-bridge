@@ -24,25 +24,25 @@ extern "C" {
 
 typedef struct __attribute__((packed))
 {
-   UINT8 dev_speed;
-   UINT8 dev_addr;
-   UINT8 dev_config_value;
-   UINT8 dev_sleep_status;
-   UINT8 dev_enum_status;
+   uint8_t dev_speed;
+   uint8_t dev_addr;
+   uint8_t dev_config_value;
+   uint8_t dev_sleep_status;
+   uint8_t dev_enum_status;
 }DevInfo_Typedef;
 
 //#define PID_SETUP	3
-extern const UINT8 hs_device_descriptor[];
-extern const UINT8 hs_config_descriptor[];
-extern const UINT8 hs_string_descriptor0[];
-extern const UINT8 hs_string_descriptor1[];
-extern const UINT8 hs_string_descriptor2[];
-extern const UINT8 hs_bos_descriptor[];
+extern const uint8_t hs_device_descriptor[];
+extern const uint8_t hs_config_descriptor[];
+extern const uint8_t hs_string_descriptor0[];
+extern const uint8_t hs_string_descriptor1[];
+extern const uint8_t hs_string_descriptor2[];
+extern const uint8_t hs_bos_descriptor[];
 
 void   USB20_Device_Init ( FunctionalState sta );  // USBSS device initial
-UINT16 U20_NonStandard_Request_Deal();
-UINT16 U20_Standard_Request_Deal();
-UINT16 U20_Endp0_IN_Callback(void);
+uint16_t U20_NonStandard_Request_Deal();
+uint16_t U20_Standard_Request_Deal();
+uint16_t U20_Endp0_IN_Callback(void);
 
 
 #ifdef __cplusplus
