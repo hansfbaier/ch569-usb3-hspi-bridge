@@ -2,6 +2,9 @@
 // Copyright (c) 2022 Hans Baier (hansfbaier@gmail.com)
 // SPDX-License-Identifier: Apache-2.0
 
+/* Global define */
+#define FREQ_SYS 96000000
+
 #include "CH56x_common.h"
 #include "CH56xusb30_LIB.h"
 #include "CH56x_usb30.h"
@@ -10,8 +13,6 @@
 
 #include "debug.h"
 
-/* Global define */
-#define FREQ_SYS 96000000
 //#define  FREQ_SYS     120000000
 #define UART1_BAUD 115200
 
